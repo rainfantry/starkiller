@@ -1,0 +1,3 @@
+-keep class com.starkiller.agent.** { *; }
+-dontwarn javax.**
+-dontwarn sun.**

