@@ -21,6 +21,8 @@
 CLASSIFICATION:  UNCLASSIFIED // ACADEMIC USE ONLY
 OPERATOR:        VADER (george wu / 22DIV)
 AUTHORISATION:   CSEC academic research, own devices
+DOCTRINE:        Israeli cyber methodology — cross-platform capability
+                 Windows + Android. Desktop + mobile. Full-spectrum.
 TARGET:          Own Android devices ONLY
 STATUS:          PHASE 1 COMPLETE — paused for VADER rootkit upgrades
 COMMIT:          99191f4 (2026-06-21)
