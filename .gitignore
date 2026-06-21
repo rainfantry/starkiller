@@ -45,3 +45,6 @@ c2_out.txt
 c2_err.txt
 test_out*.txt
 test_err*.txt
+
+# Encrypted backups (local only)
+*.7z
