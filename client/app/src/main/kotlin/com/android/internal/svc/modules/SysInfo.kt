@@ -1,4 +1,4 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.os.Build
@@ -6,7 +6,7 @@ import android.provider.Settings
 import android.telephony.TelephonyManager
 import org.json.JSONObject
 
-class DeviceInfo(private val context: Context) {
+class SysInfo(private val context: Context) {
 
     fun collect(): JSONObject {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager

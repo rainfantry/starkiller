@@ -191,7 +191,7 @@ exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
 
 def verify():
     print(f"\n  {W}STARKILLER — Environment Check{X}")
-    print(f"  {'─'*40}")
+    print(f"  {'-'*40}")
 
     ok = True
     ok &= check_java()
@@ -232,7 +232,7 @@ def verify():
         print(f"  {R}[!]{X} Android project: not found")
         ok = False
 
-    print(f"\n  {'─'*40}")
+    print(f"\n  {'-'*40}")
     if ok:
         print(f"  {G}[+] Environment ready. Run: python build.py --ip <your_ip>{X}")
     else:
@@ -248,7 +248,7 @@ def main():
 
     print(f"""
 {W}  STARKILLER SETUP{X}
-{D}  ──────────────────────────────{X}
+{D}  ------------------------------{X}
 {D}  Setting up Android build environment...{X}
 """)
 
@@ -261,7 +261,7 @@ def main():
     setup_sdk()
     setup_gradle_wrapper()
 
-    print(f"\n  {'─'*40}")
+    print(f"\n  {'-'*40}")
     print(f"  {G}[+] Setup complete.{X}")
     print(f"  {D}Next: python build.py --ip <your_ip>{X}\n")
 

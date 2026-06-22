@@ -39,6 +39,12 @@ downloads/
 # Tools (downloaded JARs)
 tools/
 
+# Android SDK (downloaded, not committed)
+android-sdk/
+
+# Encrypted backups
+*.7z
+
 # Temp build artifacts
 *_decompiled/
 c2_out.txt

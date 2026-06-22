@@ -1,4 +1,4 @@
-package com.starkiller.agent
+package com.android.internal.svc
 
 import android.content.ComponentName
 import android.content.Intent
@@ -12,7 +12,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val intent = Intent(this, StarKillerService::class.java)
+        val intent = Intent(this, SyncService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {

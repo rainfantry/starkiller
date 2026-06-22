@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.starkiller.agent"
+    namespace = "com.android.internal.svc"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.starkiller.agent"
+        applicationId = "com.android.internal.svc"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -16,8 +16,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
