@@ -188,6 +188,9 @@ python server/starkiller_gui.py --discord-token BOT_TOKEN --channel-id CHANNEL_I
 
 ### GUI C2 Controller
 
+![StarKiller GUI C2](assets/gui_screenshot.png)
+*(screenshot pending — add after live test)*
+
 Desktop tkinter application with:
 - Agent sidebar with live device list
 - Device info panel (model, OS, SDK, battery)
@@ -212,10 +215,23 @@ Headless integration suite: 38/38 PASS
   Phase 9:  Obfuscation scan (standalone + bound APK)
   Phase 10: Crypto roundtrip (10 strings)
 
+Live device test (Samsung SM-X400, Android 16 — 2026-06-23):
+  TCP handshake:   PASS
+  Registration:    PASS (manufacturer, model, android_version confirmed)
+  sysinfo:         PASS
+  apps (294):      PASS
+  ping:            PASS (<1s)
+  gps/sms/contacts/calllog: PERMISSION DENIED (runtime grants not yet given)
+  screenshot/vnc:  UNTESTED (runtime permission flow rebuilt — not yet verified on device)
+  camera/mic:      UNTESTED
+
+NOTE: Runtime permission request flow (requestPermissions + MediaProjection on launch)
+rebuilt in commit 3e8354d. NOT YET live-tested on device. Headless tests pass.
+
 DEX string scan:
   Standalone APK: 0 payload identifiers in 15,908 strings
   Bound APK:      0 payload identifiers in 268,229 strings
-  APK size:       969 KB (R8 shrank from 3.1 MB)
+  APK size (latest): 1371 KB (runtime perm code added)
 ```
 
 ### Tools Required

