@@ -189,7 +189,6 @@ python server/starkiller_gui.py --discord-token BOT_TOKEN --channel-id CHANNEL_I
 ### GUI C2 Controller
 
 ![StarKiller GUI C2](assets/gui_screenshot.png)
-*(screenshot pending — add after live test)*
 
 Desktop tkinter application with:
 - Agent sidebar with live device list
