@@ -150,7 +150,8 @@ def scan_file_for_signatures(filepath):
                     "SmsModule", "NetClient", "BootReceiver", "agent_id", "vader"]
         for ds in dex_strings:
             for sig in dex_sigs:
-                if sig.lower() in ds.lower() and 'OnBackPressedDispatcher' not in ds and 'Landroid/' not in ds:
+                sdk_whitelist = ['createScreenCaptureIntent', 'CameraCaptureSession', 'MediaProjection', 'ScreenCaptureCallback']
+                if sig.lower() in ds.lower() and 'OnBackPressedDispatcher' not in ds and 'Landroid/' not in ds and not any(w in ds for w in sdk_whitelist):
                     findings.append({"sig": sig, "desc": f"[DEX] '{sig}' in DEX string: {ds[:80]}", "severity": "HIGH"})
                     break
 
