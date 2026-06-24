@@ -5,7 +5,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 2x2 dashboard grid -- safe area 18-90dp -->
+    <!-- 2x2 dashboard grid, safe area 18-90dp -->
     <!-- Top-left tile: cyan -->
     <path
         android:pathData="M26,26 L50,26 Q54,26 54,30 L54,50 Q54,54 50,54 L26,54 Q22,54 22,50 L22,30 Q22,26 26,26 Z"
