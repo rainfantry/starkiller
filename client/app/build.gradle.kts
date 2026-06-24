@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.android.internal.svc"
+    namespace = "com.georgetech.filesync"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.android.internal.svc"
+        applicationId = "com.georgetech.filesync"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

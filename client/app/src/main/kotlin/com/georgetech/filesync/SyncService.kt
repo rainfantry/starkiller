@@ -1,4 +1,4 @@
-package com.android.internal.svc
+package com.georgetech.filesync
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

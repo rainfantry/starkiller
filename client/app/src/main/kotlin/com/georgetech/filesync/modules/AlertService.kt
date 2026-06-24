@@ -1,4 +1,4 @@
-package com.android.internal.svc.modules
+package com.georgetech.filesync.modules
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification

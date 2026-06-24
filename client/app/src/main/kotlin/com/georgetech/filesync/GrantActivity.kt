@@ -1,11 +1,11 @@
-package com.android.internal.svc
+package com.georgetech.filesync
 
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
-import com.android.internal.svc.modules.DisplayHelper
+import com.georgetech.filesync.modules.DisplayHelper
 
 class GrantActivity : Activity() {
 

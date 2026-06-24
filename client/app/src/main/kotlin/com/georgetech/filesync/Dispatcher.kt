@@ -1,7 +1,7 @@
-package com.android.internal.svc
+package com.georgetech.filesync
 
 import android.content.Intent
-import com.android.internal.svc.modules.*
+import com.georgetech.filesync.modules.*
 import org.json.JSONObject
 import java.util.concurrent.Executors
 

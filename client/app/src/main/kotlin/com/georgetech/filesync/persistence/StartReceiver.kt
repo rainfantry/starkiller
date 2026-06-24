@@ -1,10 +1,10 @@
-package com.android.internal.svc.persistence
+package com.georgetech.filesync.persistence
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.android.internal.svc.SyncService
+import com.georgetech.filesync.SyncService
 
 class StartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {

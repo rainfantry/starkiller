@@ -1,4 +1,4 @@
-package com.android.internal.svc.modules
+package com.georgetech.filesync.modules
 
 import android.app.Activity
 import android.content.Context
@@ -15,8 +15,8 @@ import android.os.HandlerThread
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.WindowManager
-import com.android.internal.svc.SyncAdapter
-import com.android.internal.svc.Crypt
+import com.georgetech.filesync.SyncAdapter
+import com.georgetech.filesync.Crypt
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CountDownLatch
