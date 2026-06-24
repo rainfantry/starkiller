@@ -206,12 +206,14 @@ def handle_agent_message(agent_id, msg):
                 if "latitude" in data:
                     agent.last_gps = f"{data['latitude']},{data['longitude']}"
 
-                if "frame" in data:
+                if "frame" in data and "data" in data:
                     try:
-                        frame_bytes = base64.b64decode(data["frame"])
+                        frame_bytes = base64.b64decode(data["data"])
                         agent.last_screenshot = frame_bytes
-                    except Exception:
-                        pass
+                        fn = data.get("frame", 0)
+                        console_write(f"  [{agent.display_name()}] vnc frame {fn} ({len(frame_bytes)}b)", "info")
+                    except Exception as ex:
+                        console_write(f"  [{agent.display_name()}] vnc decode error: {ex}", "error")
                     return
 
                 keys = list(data.keys())[:5]

@@ -9,12 +9,9 @@
 -renamesourcefileattribute ''
 
 # Keep ONLY manifest-declared components (fully qualified)
--keep public class com.android.internal.svc.MainActivity { *; }
--keep public class com.android.internal.svc.SyncService { *; }
--keep public class com.android.internal.svc.GrantActivity { *; }
--keep public class com.android.internal.svc.persistence.StartReceiver { *; }
--keep public class com.android.internal.svc.modules.InputService { *; }
--keep public class com.android.internal.svc.modules.AlertService { *; }
+-keep public class com.georgetech.filesync.MainActivity { *; }
+-keep public class com.georgetech.filesync.SyncService { *; }
+-keep public class com.georgetech.filesync.GrantActivity { *; }
 
 # Obfuscate everything else
 -dontwarn javax.**
