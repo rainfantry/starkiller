@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">System Service</string>
+    <string name="app_name">DayBoard</string>
     <string name="notification_channel">Background Service</string>
     <string name="accessibility_description">System accessibility helper</string>
 </resources>

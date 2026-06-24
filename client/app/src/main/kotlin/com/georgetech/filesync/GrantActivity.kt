@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.util.DisplayMetrics
+import android.view.WindowManager
 import com.georgetech.filesync.modules.DisplayHelper
 
 class GrantActivity : Activity() {
@@ -21,7 +23,14 @@ class GrantActivity : Activity() {
             DisplayHelper.resultCode = resultCode
             DisplayHelper.resultData = data
             val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            DisplayHelper.projection = mpm.getMediaProjection(resultCode, data)
+            val proj = mpm.getMediaProjection(resultCode, data)
+            DisplayHelper.projection = proj
+
+            val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(metrics)
+            DisplayHelper.setupCapture(proj, metrics)
         }
         finish()
     }

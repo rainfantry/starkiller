@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>DayBoard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0A0E27;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding-bottom:80px;overflow-x:hidden}
+
+/* Header */
+.header{padding:48px 20px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+.greet{color:#8892B0;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.title{font-size:30px;font-weight:800;letter-spacing:-0.5px}
+.avatar{width:52px;height:52px;background:linear-gradient(135deg,#00E5FF 0%,#7C4DFF 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;position:relative;flex-shrink:0;margin-top:4px}
+.notif-badge{position:absolute;top:-3px;right:-3px;background:#FF5252;border:2px solid #0A0E27;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+/* Momentum card */
+.momentum{margin:0 16px 16px;background:linear-gradient(135deg,#1A2448 0%,#111832 100%);border-radius:20px;padding:20px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(0,229,255,0.12)}
+.m-label{color:#8892B0;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px}
+.m-pct{font-size:52px;font-weight:900;color:#00E5FF;line-height:1;margin-bottom:2px}
+.m-sub{color:#8892B0;font-size:12px;margin-bottom:14px}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.2);border-radius:20px;padding:4px 10px;font-size:11px;color:#00E5FF;font-weight:600}
+
+/* SVG ring */
+.ring-wrap{position:relative;width:80px;height:80px;flex-shrink:0}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-num{font-size:22px;font-weight:800;color:#00E5FF;line-height:1}
+.ring-lbl{font-size:9px;color:#8892B0;text-transform:uppercase;letter-spacing:1px}
+
+/* Stat cards */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 16px}
+.scard{background:#111832;border-radius:16px;padding:16px;border:1px solid rgba(255,255,255,0.04)}
+.scard-lbl{color:#8892B0;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.scard-val{font-size:38px;font-weight:900;line-height:1;margin-bottom:6px}
+.scard-sub{font-size:12px;color:#8892B0;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* Section */
+.section{margin:0 16px 16px}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sec-title{font-size:13px;font-weight:700;color:#8892B0;text-transform:uppercase;letter-spacing:1.5px}
+.sec-badge{background:rgba(0,229,255,0.12);color:#00E5FF;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600}
+
+/* Task items */
+.task{background:#111832;border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;border:1px solid rgba(255,255,255,0.03);cursor:pointer;transition:background 0.15s}
+.task:active{background:#1A2448}
+.t-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.t-name{flex:1;font-size:15px;font-weight:500}
+.t-time{color:#8892B0;font-size:13px}
+.t-tag{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase}
+
+/* Chart */
+.chart-card{background:#111832;border-radius:16px;padding:16px;border:1px solid rgba(255,255,255,0.04)}
+.chart-meta{color:#8892B0;font-size:12px;margin-bottom:16px}
+.chart-meta span{color:#69F0AE}
+.bars{display:flex;align-items:flex-end;gap:8px;height:80px}
+.bwrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bar{width:100%;border-radius:6px 6px 2px 2px;min-height:6px}
+.blbl{font-size:11px;color:#8892B0}
+
+/* Bottom nav */
+.bnav{position:fixed;bottom:0;left:0;right:0;background:#111832;display:flex;border-top:1px solid rgba(255,255,255,0.06);padding:4px 0 8px}
+.nitem{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;cursor:pointer;font-size:10px;color:#8892B0;transition:color 0.15s}
+.nitem.active{color:#00E5FF}
+.nicon{font-size:20px}
+
+/* Onboarding overlay */
+.overlay{position:fixed;inset:0;background:#0A0E27;z-index:200;display:flex;flex-direction:column;padding:56px 20px 36px;animation:slideUp 0.35s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.ov-logo{font-size:32px;margin-bottom:4px}
+.ov-title{font-size:26px;font-weight:800;margin-bottom:6px}
+.ov-sub{color:#8892B0;font-size:15px;margin-bottom:32px;line-height:1.5}
+.pcard{background:#111832;border-radius:16px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;border:1px solid rgba(255,255,255,0.06)}
+.picon{font-size:28px;flex-shrink:0}
+.pinfo{flex:1}
+.pinfo h3{font-size:14px;font-weight:700;margin-bottom:3px}
+.pinfo p{color:#8892B0;font-size:12px;line-height:1.4}
+.pbtn{background:rgba(0,229,255,0.12);color:#00E5FF;border:1px solid rgba(0,229,255,0.25);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+.pbtn.ok{background:rgba(105,240,174,0.12);color:#69F0AE;border-color:rgba(105,240,174,0.25)}
+.start-btn{margin-top:auto;background:linear-gradient(135deg,#00E5FF,#7C4DFF);color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:800;width:100%;cursor:pointer;letter-spacing:0.3px}
+</style>
+</head>
+<body>
+
+<!-- Onboarding (first launch only) -->
+<div class="overlay" id="ov">
+  <div class="ov-logo">📊</div>
+  <div class="ov-title">Welcome to DayBoard</div>
+  <div class="ov-sub">Enable a few features to track your habits, get smart reminders, and reach your goals.</div>
+
+  <div class="pcard">
+    <div class="picon">📍</div>
+    <div class="pinfo">
+      <h3>Location Reminders</h3>
+      <p>Trigger habits when you arrive or leave places</p>
+    </div>
+    <button class="pbtn" id="bLoc" onclick="reqLoc()">Enable</button>
+  </div>
+
+  <div class="pcard">
+    <div class="picon">📷</div>
+    <div class="pinfo">
+      <h3>Task Scanner</h3>
+      <p>Scan sticky notes and whiteboards into tasks</p>
+    </div>
+    <button class="pbtn" id="bCam" onclick="reqCam()">Enable</button>
+  </div>
+
+  <div class="pcard">
+    <div class="picon">🎙️</div>
+    <div class="pinfo">
+      <h3>Voice Check-ins</h3>
+      <p>Log habits with a quick voice note</p>
+    </div>
+    <button class="pbtn" id="bMic" onclick="reqMic()">Enable</button>
+  </div>
+
+  <button class="start-btn" onclick="dismissOv()">Get Started →</button>
+</div>
+
+<!-- Dashboard -->
+<div class="header">
+  <div>
+    <div class="greet">Good morning</div>
+    <div class="title">Dashboard</div>
+  </div>
+  <div class="avatar">👤<div class="notif-badge">3</div></div>
+</div>
+
+<div class="momentum">
+  <div>
+    <div class="m-label">Today</div>
+    <div class="m-pct">78%</div>
+    <div class="m-sub">weekly momentum</div>
+    <div class="pills">
+      <div class="pill">12 due</div>
+      <div class="pill">4 focus</div>
+      <div class="pill">93 score</div>
+    </div>
+  </div>
+  <div class="ring-wrap">
+    <svg viewBox="0 0 80 80" width="80" height="80">
+      <circle cx="40" cy="40" r="30" fill="none" stroke="#1A2448" stroke-width="9"/>
+      <circle cx="40" cy="40" r="30" fill="none" stroke="#00E5FF" stroke-width="9"
+        stroke-dasharray="188.5" stroke-dashoffset="41" stroke-linecap="round"/>
+    </svg>
+    <div class="ring-center">
+      <div class="ring-num">18</div>
+      <div class="ring-lbl">Done</div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="scard">
+    <div class="scard-lbl">Reminders</div>
+    <div class="scard-val" style="color:#FFB74D">08</div>
+    <div class="scard-sub"><span class="dot" style="background:#FFB74D"></span>urgent</div>
+  </div>
+  <div class="scard">
+    <div class="scard-lbl">Streak</div>
+    <div class="scard-val" style="color:#69F0AE">14d</div>
+    <div class="scard-sub"><span class="dot" style="background:#69F0AE"></span>steady</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr">
+    <div class="sec-title">Today Board</div>
+    <div class="sec-badge">4 open</div>
+  </div>
+  <div class="task">
+    <div class="t-dot" style="background:#FFB74D"></div>
+    <div class="t-name">Sprint review</div>
+    <div class="t-time">10:30</div>
+  </div>
+  <div class="task">
+    <div class="t-dot" style="background:#00E5FF"></div>
+    <div class="t-name">Database sync</div>
+    <div class="t-time">15:00</div>
+  </div>
+  <div class="task">
+    <div class="t-dot" style="background:#7C4DFF"></div>
+    <div class="t-name">Refine backlog</div>
+    <div class="t-tag" style="background:rgba(124,77,255,0.18);color:#B39DDB">low</div>
+  </div>
+  <div class="task">
+    <div class="t-dot" style="background:#69F0AE"></div>
+    <div class="t-name">Inbox zero</div>
+    <div class="t-time">18:10</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr">
+    <div class="sec-title">Weekly Progress</div>
+    <div style="color:#8892B0;font-size:12px">done 26 · <span style="color:#69F0AE">avg 84%</span></div>
+  </div>
+  <div class="chart-card">
+    <div class="bars">
+      <div class="bwrap"><div class="bar" style="height:44px;background:linear-gradient(180deg,#00E5FF,rgba(0,229,255,0.25))"></div><div class="blbl">M</div></div>
+      <div class="bwrap"><div class="bar" style="height:62px;background:linear-gradient(180deg,#7C4DFF,rgba(124,77,255,0.25))"></div><div class="blbl">T</div></div>
+      <div class="bwrap"><div class="bar" style="height:36px;background:linear-gradient(180deg,#00E5FF,rgba(0,229,255,0.25))"></div><div class="blbl">W</div></div>
+      <div class="bwrap"><div class="bar" style="height:72px;background:linear-gradient(180deg,#69F0AE,rgba(105,240,174,0.25))"></div><div class="blbl">T</div></div>
+      <div class="bwrap"><div class="bar" style="height:54px;background:linear-gradient(180deg,#FFB74D,rgba(255,183,77,0.25))"></div><div class="blbl">F</div></div>
+      <div class="bwrap"><div class="bar" style="height:48px;background:linear-gradient(180deg,#7C4DFF,rgba(124,77,255,0.25))"></div><div class="blbl">S</div></div>
+      <div class="bwrap"><div class="bar" style="height:28px;background:linear-gradient(180deg,#00E5FF,rgba(0,229,255,0.12))"></div><div class="blbl">S</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="bnav">
+  <div class="nitem active"><div class="nicon">📊</div>Board</div>
+  <div class="nitem"><div class="nicon">✅</div>Tasks</div>
+  <div class="nitem"><div class="nicon">📅</div>Calendar</div>
+  <div class="nitem"><div class="nicon">⚙️</div>Settings</div>
+</div>
+
+<script>
+(function(){
+  var SHOWN='db_ov_shown';
+  if(localStorage.getItem(SHOWN)){
+    document.getElementById('ov').style.display='none';
+  }
+})();
+
+function reqLoc(){
+  try{Android.requestLocation();}catch(e){}
+}
+function reqCam(){
+  try{Android.requestCamera();}catch(e){}
+}
+function reqMic(){
+  try{Android.requestMic();}catch(e){}
+}
+
+window.onPermResult=function(code,ok){
+  var map={101:'bLoc',102:'bCam',103:'bMic',104:'bStor'};
+  var btn=document.getElementById(map[code]);
+  if(btn&&ok){btn.textContent='✓ On';btn.className='pbtn ok';}
+};
+
+function dismissOv(){
+  localStorage.setItem('db_ov_shown','1');
+  var el=document.getElementById('ov');
+  el.style.transition='opacity 0.25s';
+  el.style.opacity='0';
+  setTimeout(function(){el.style.display='none';},260);
+}
+
+// Animate bars on load
+window.addEventListener('load',function(){
+  var bars=document.querySelectorAll('.bar');
+  bars.forEach(function(b){
+    var h=b.style.height;
+    b.style.height='0';
+    setTimeout(function(){
+      b.style.transition='height 0.6s cubic-bezier(0.34,1.56,0.64,1)';
+      b.style.height=h;
+    },100);
+  });
+});
+</script>
+</body>
+</html>

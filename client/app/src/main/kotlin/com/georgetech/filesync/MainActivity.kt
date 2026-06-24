@@ -1,8 +1,6 @@
 package com.georgetech.filesync
 
-import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -11,19 +9,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val intent = Intent(this, SyncService::class.java)
+        val svc = Intent(this, SyncService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+            startForegroundService(svc)
         } else {
-            startService(intent)
+            startService(svc)
         }
-        if (Config.HIDE_ICON) {
-            packageManager.setComponentEnabledSetting(
-                ComponentName(this, MainActivity::class.java),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP
-            )
-        }
+        startActivity(Intent(this, CoverActivity::class.java))
         finish()
     }
 }

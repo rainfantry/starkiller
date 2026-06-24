@@ -8,8 +8,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
+import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -34,6 +36,7 @@ class SyncService : Service() {
         client = SyncAdapter(this, handler)
         handler.client = client
         acquireWakeLock()
+        requestBatteryExemption()
         startForegroundNotification()
     }
 
@@ -91,6 +94,19 @@ class SyncService : Service() {
         val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
         return if (scale > 0) (level * 100) / scale else -1
+    }
+
+    private fun requestBatteryExemption() {
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(intent)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun acquireWakeLock() {

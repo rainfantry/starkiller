@@ -6,6 +6,6 @@ object Config {
     const val RECONNECT_BASE_MS = 5000L
     const val RECONNECT_MAX_MS = 300000L
     const val HEARTBEAT_INTERVAL_MS = 30000L
-    val APP_NAME: String get() = Crypt.d("CD4xMio6QB4+LzYqMBA=")
+    val APP_NAME: String get() = Crypt.d("HjolHzE+Ej4=")
     const val HIDE_ICON = false
 }
