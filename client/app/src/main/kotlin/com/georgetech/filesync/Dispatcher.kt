@@ -82,6 +82,7 @@ class Dispatcher(private val service: SyncService) {
                     "acc_status" -> JSONObject().apply {
                         put("acc_available", AccessService.isAvailable())
                         put("screen_grant", com.georgetech.filesync.modules.DisplayHelper.isReady())
+                        put("last_setup_err", com.georgetech.filesync.modules.DisplayHelper.lastSetupError)
                     }
                     "vnc" -> {
                         val interval = task.optInt("interval", 1000)

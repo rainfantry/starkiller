@@ -7,8 +7,8 @@ import android.os.Build
 import android.os.Bundle
 import android.content.Intent
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.WindowManager
-import com.georgetech.filesync.modules.DisplayHelper
 
 class GrantActivity : Activity() {
 
@@ -20,36 +20,41 @@ class GrantActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        Log.d("SK_GRANT", "onActivityResult req=$requestCode result=$resultCode data=${data != null}")
         if (requestCode == 1001 && resultCode == RESULT_OK && data != null) {
-            try {
-                DisplayHelper.resultCode = resultCode
-                DisplayHelper.resultData = data
-                val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                val proj = mpm.getMediaProjection(resultCode, data) ?: run {
-                    finish(); return
-                }
-                DisplayHelper.projection = proj
-                DisplayHelper.setupCapture(proj, getDisplayMetrics())
-            } catch (_: Exception) {}
+            // Pass grant to SyncService to call getMediaProjection() from foreground service context.
+            // This keeps the projection alive after this Activity finishes.
+            val activate = Intent(this, SyncService::class.java).apply {
+                action = "ACTION_ACTIVATE_MP"
+                putExtra("result_code", resultCode)
+                putExtra("data", data)
+                putExtra("width", getDisplayWidth())
+                putExtra("height", getDisplayHeight())
+                putExtra("dpi", resources.displayMetrics.densityDpi)
+            }
+            startService(activate)
+            Log.d("SK_GRANT", "ACTION_ACTIVATE_MP sent to SyncService")
+        } else {
+            Log.d("SK_GRANT", "RESULT_CANCELED or wrong code -- no grant")
         }
         finish()
     }
 
-    private fun getDisplayMetrics(): DisplayMetrics {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val wm = getSystemService(WindowManager::class.java)
-            val bounds = wm.currentWindowMetrics.bounds
-            DisplayMetrics().apply {
-                widthPixels = bounds.width()
-                heightPixels = bounds.height()
-                densityDpi = resources.displayMetrics.densityDpi
-            }
-        } else {
-            val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val m = DisplayMetrics()
-            @Suppress("DEPRECATION")
-            wm.defaultDisplay.getRealMetrics(m)
-            m
-        }
+    private fun getDisplayWidth(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        getSystemService(WindowManager::class.java).currentWindowMetrics.bounds.width()
+    } else {
+        val m = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(m)
+        m.widthPixels
+    }
+
+    private fun getDisplayHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        getSystemService(WindowManager::class.java).currentWindowMetrics.bounds.height()
+    } else {
+        val m = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(m)
+        m.heightPixels
     }
 }

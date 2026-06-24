@@ -36,6 +36,7 @@ class DisplayHelper(private val context: Context) {
         @Volatile var capHeight = 0
         @Volatile private var capturing = false
         private val frameQ = LinkedBlockingQueue<ByteArray>(3)
+        @Volatile private var lastFrame: ByteArray? = null
 
         var lastSetupError: String = ""
 
@@ -73,7 +74,9 @@ class DisplayHelper(private val context: Context) {
                     val baos = ByteArrayOutputStream()
                     crop.compress(Bitmap.CompressFormat.JPEG, 60, baos)
                     crop.recycle()
-                    frameQ.offer(baos.toByteArray())
+                    val bytes = baos.toByteArray()
+                    lastFrame = bytes
+                    frameQ.offer(bytes)
                 } finally {
                     img.close()
                 }
@@ -96,13 +99,17 @@ class DisplayHelper(private val context: Context) {
             }
 
             proj.registerCallback(object : MediaProjection.Callback() {
-                override fun onStop() { teardown() }
+                override fun onStop() {
+                    android.util.Log.e("SK_MP", "onStop fired -- tearing down projection")
+                    teardown()
+                }
             }, h2)
 
             vdThread = t
             vdHandler = h2
             imgReader = reader
             virtDisplay = vd
+            projection = proj
             capWidth = w
             capHeight = h
             lastSetupError = "ok"
@@ -155,7 +162,7 @@ class DisplayHelper(private val context: Context) {
         }
         frameQ.clear()
         capturing = true
-        val bytes = frameQ.poll(3, TimeUnit.SECONDS)
+        val bytes = frameQ.poll(2, TimeUnit.SECONDS) ?: lastFrame
         capturing = false
         return if (bytes != null) {
             JSONObject().apply {
@@ -184,7 +191,9 @@ class DisplayHelper(private val context: Context) {
                 if (!isReady()) break
                 frameQ.clear()
                 capturing = true
-                val b = frameQ.poll(3, TimeUnit.SECONDS)
+                // Poll up to 2s for a fresh frame; fall back to cached last frame
+                // (Samsung VirtualDisplay only pushes new frames when screen content changes)
+                val b = frameQ.poll(2, TimeUnit.SECONDS) ?: lastFrame
                 capturing = false
                 b
             }

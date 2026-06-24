@@ -7,13 +7,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.projection.MediaProjectionManager
 import android.os.BatteryManager
 import android.os.Build
 import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.DisplayMetrics
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.georgetech.filesync.modules.DisplayHelper
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -42,6 +46,41 @@ class SyncService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "ACTION_ACTIVATE_MP") {
+            // Called by GrantActivity after user taps "Start now" in MediaProjection dialog.
+            // getMediaProjection() + setupCapture() run here (inside foreground service) so the
+            // projection survives GrantActivity.finish() without Samsung revoking it.
+            val rc = intent.getIntExtra("result_code", 0)
+            @Suppress("DEPRECATION")
+            val data = intent.getParcelableExtra<Intent>("data")
+            val w = intent.getIntExtra("width", 1080)
+            val h = intent.getIntExtra("height", 2340)
+            val dpi = intent.getIntExtra("dpi", 480)
+            if (rc != 0 && data != null) {
+                executor.submit {
+                    try {
+                        startForegroundNotification()  // re-assert MEDIA_PROJECTION type
+                        val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                        val proj = mpm.getMediaProjection(rc, data)
+                        Log.d("SK_SVC", "ACTION_ACTIVATE_MP: proj=${proj != null}")
+                        if (proj != null) {
+                            val metrics = DisplayMetrics().apply {
+                                widthPixels = w; heightPixels = h; densityDpi = dpi
+                            }
+                            DisplayHelper.projection = proj
+                            DisplayHelper.setupCapture(proj, metrics)
+                            Log.d("SK_SVC", "setupCapture done: ${DisplayHelper.lastSetupError}")
+                        } else {
+                            DisplayHelper.lastSetupError = "proj_null_from_svc"
+                        }
+                    } catch (e: Exception) {
+                        DisplayHelper.lastSetupError = "svc_ex: ${e.javaClass.simpleName}: ${e.message}"
+                        Log.e("SK_SVC", "ACTION_ACTIVATE_MP ex: ${e.message}")
+                    }
+                }
+            }
+            return START_NOT_STICKY
+        }
         if (!running) {
             running = true
             executor.submit { connectionLoop() }
