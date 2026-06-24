@@ -47,6 +47,14 @@ class CoverActivity : AppCompatActivity() {
         setContentView(wv)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Check if GrantActivity (separate task) delivered the MediaProjection while we were paused
+        if (DisplayHelper.isReady()) {
+            jsCallback(REQ_SCR, true)
+        }
+    }
+
     override fun onBackPressed() {
         if (wv.canGoBack()) wv.goBack() else super.onBackPressed()
     }
@@ -99,9 +107,10 @@ class CoverActivity : AppCompatActivity() {
             if (DisplayHelper.isReady()) {
                 jsCallback(REQ_SCR, true)
             } else {
-                // Request directly from CoverActivity — avoids Samsung bug with transparent GrantActivity
-                val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                startActivityForResult(mpm.createScreenCaptureIntent(), REQ_SCR)
+                // GrantActivity runs in its own task (taskAffinity="") isolated from WebView
+                startActivity(Intent(this@CoverActivity, GrantActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                })
             }
         }
 

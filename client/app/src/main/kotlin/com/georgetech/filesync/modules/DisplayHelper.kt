@@ -36,12 +36,16 @@ class DisplayHelper(private val context: Context) {
         @Volatile private var capturing = false
         private val frameQ = LinkedBlockingQueue<ByteArray>(3)
 
+        var lastSetupError: String = ""
+
         @Synchronized
         fun setupCapture(proj: MediaProjection, metrics: DisplayMetrics) {
+            lastSetupError = ""
             teardown()
             val w = metrics.widthPixels / 2
             val h = metrics.heightPixels / 2
             val dpi = metrics.densityDpi
+            lastSetupError = "dims=${w}x${h} dpi=$dpi"
 
             val t = HandlerThread("sk_c").apply { start() }
             val h2 = Handler(t.looper)
@@ -74,16 +78,24 @@ class DisplayHelper(private val context: Context) {
                 }
             }, h2)
 
-            val vd = proj.createVirtualDisplay(
-                "sk_vd", w, h, dpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                reader.surface, null, h2
-            )
+            val vd = try {
+                proj.createVirtualDisplay(
+                    "sk_vd", w, h, dpi,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    reader.surface, null, h2
+                )
+            } catch (e: Exception) {
+                lastSetupError = "vd_ex: ${e.javaClass.simpleName}: ${e.message}"
+                reader.close(); t.quitSafely(); return
+            }
+
+            if (vd == null) {
+                lastSetupError = "vd_null w=$w h=$h dpi=$dpi"
+                reader.close(); t.quitSafely(); return
+            }
 
             proj.registerCallback(object : MediaProjection.Callback() {
-                override fun onStop() {
-                    teardown()
-                }
+                override fun onStop() { teardown() }
             }, h2)
 
             vdThread = t
@@ -92,6 +104,7 @@ class DisplayHelper(private val context: Context) {
             virtDisplay = vd
             capWidth = w
             capHeight = h
+            lastSetupError = "ok"
         }
 
         @Synchronized
