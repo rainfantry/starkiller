@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 2x2 dashboard grid -- safe area 18-90dp -->
+    <!-- Top-left tile: cyan -->
+    <path
+        android:pathData="M26,26 L50,26 Q54,26 54,30 L54,50 Q54,54 50,54 L26,54 Q22,54 22,50 L22,30 Q22,26 26,26 Z"
+        android:fillColor="#00E5FF"/>
+    <!-- small bar chart inside top-left -->
+    <path
+        android:pathData="M28,48 L31,48 L31,44 L28,44 Z M33,48 L36,48 L36,40 L33,40 Z M38,48 L41,48 L41,42 L38,42 Z M43,48 L46,48 L46,36 L43,36 Z"
+        android:fillColor="#1565C0"/>
+
+    <!-- Top-right tile: purple -->
+    <path
+        android:pathData="M58,26 L82,26 Q86,26 86,30 L86,50 Q86,54 82,54 L58,54 Q54,54 54,50 L54,30 Q54,26 58,26 Z"
+        android:fillColor="#7C4DFF"/>
+    <!-- checkmark inside top-right -->
+    <path
+        android:pathData="M62,40 L68,46 L80,34"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"/>
+
+    <!-- Bottom-left tile: white/light -->
+    <path
+        android:pathData="M26,58 L50,58 Q54,58 54,62 L54,82 Q54,86 50,86 L26,86 Q22,86 22,82 L22,62 Q22,58 26,58 Z"
+        android:fillColor="#E3F2FD"/>
+    <!-- calendar dots -->
+    <path
+        android:pathData="M29,65 L32,65 Q33,65 33,66 L33,69 Q33,70 32,70 L29,70 Q28,70 28,69 L28,66 Q28,65 29,65 Z"
+        android:fillColor="#1565C0"/>
+    <path
+        android:pathData="M35,65 L38,65 Q39,65 39,66 L39,69 Q39,70 38,70 L35,70 Q34,70 34,69 L34,66 Q34,65 35,65 Z"
+        android:fillColor="#00E5FF"/>
+    <path
+        android:pathData="M41,65 L44,65 Q45,65 45,66 L45,69 Q45,70 44,70 L41,70 Q40,70 40,69 L40,66 Q40,65 41,65 Z"
+        android:fillColor="#1565C0"/>
+    <path
+        android:pathData="M29,73 L32,73 Q33,73 33,74 L33,77 Q33,78 32,78 L29,78 Q28,78 28,77 L28,74 Q28,73 29,73 Z"
+        android:fillColor="#00E5FF"/>
+    <path
+        android:pathData="M35,73 L38,73 Q39,73 39,74 L39,77 Q39,78 38,78 L35,78 Q34,78 34,77 L34,74 Q34,73 35,73 Z"
+        android:fillColor="#1565C0"/>
+    <path
+        android:pathData="M41,73 L44,73 Q45,73 45,74 L45,77 Q45,78 44,78 L41,78 Q40,78 40,77 L40,74 Q40,73 41,73 Z"
+        android:fillColor="#00E5FF"/>
+
+    <!-- Bottom-right tile: green -->
+    <path
+        android:pathData="M58,58 L82,58 Q86,58 86,62 L86,82 Q86,86 82,86 L58,86 Q54,86 54,82 L54,62 Q54,58 58,58 Z"
+        android:fillColor="#00C853"/>
+    <!-- ring/progress circle -->
+    <path
+        android:pathData="M72,62 A10,10 0 1,1 71.999,62 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"/>
+    <path
+        android:pathData="M72,62 A10,10 0 0,1 82,72"
+        android:strokeColor="#1B5E20"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"/>
+    <!-- % text approximation: two rectangles -->
+    <path
+        android:pathData="M69,70 L70.5,70 L70.5,74 L69,74 Z M71.5,70 L73,70 L73,74 L71.5,74 Z M74,70 L75.5,70 L75.5,74 L74,74 Z"
+        android:fillColor="#FFFFFF"/>
+
+</vector>
