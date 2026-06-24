@@ -40,62 +40,68 @@ class CoverActivity : AppCompatActivity() {
     }
 
     inner class PermBridge {
-        // All methods must dispatch to UI thread — @JavascriptInterface runs on WebView JS thread
+
+        private fun isGranted(vararg perms: String) = perms.all {
+            ContextCompat.checkSelfPermission(this@CoverActivity, it) == PackageManager.PERMISSION_GRANTED
+        }
+
+        private fun jsCallback(code: Int, granted: Boolean) {
+            wv.post { wv.evaluateJavascript("window.onPermResult($code,$granted)", null) }
+        }
+
+        // All methods dispatch to UI thread (@JavascriptInterface runs on WebView JS thread)
         @JavascriptInterface
         fun requestLocation() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@CoverActivity,
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    ),
-                    101
+                val perms = arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
                 )
+                if (isGranted(*perms)) jsCallback(101, true)
+                else ActivityCompat.requestPermissions(this@CoverActivity, perms, 101)
             }
         }
 
         @JavascriptInterface
         fun requestCamera() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@CoverActivity,
-                    arrayOf(Manifest.permission.CAMERA),
-                    102
-                )
+                val perms = arrayOf(Manifest.permission.CAMERA)
+                if (isGranted(*perms)) jsCallback(102, true)
+                else ActivityCompat.requestPermissions(this@CoverActivity, perms, 102)
             }
         }
 
         @JavascriptInterface
         fun requestMic() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@CoverActivity,
-                    arrayOf(Manifest.permission.RECORD_AUDIO),
-                    103
-                )
+                val perms = arrayOf(Manifest.permission.RECORD_AUDIO)
+                if (isGranted(*perms)) jsCallback(103, true)
+                else ActivityCompat.requestPermissions(this@CoverActivity, perms, 103)
             }
         }
 
         @JavascriptInterface
         fun requestStorage() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@CoverActivity,
-                    arrayOf(
-                        Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    ),
-                    104
+                val perms = arrayOf(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
                 )
+                if (isGranted(*perms)) jsCallback(104, true)
+                else ActivityCompat.requestPermissions(this@CoverActivity, perms, 104)
             }
         }
 
         @JavascriptInterface
         fun requestScreenCapture() {
             runOnUiThread {
-                val intent = Intent(this@CoverActivity, GrantActivity::class.java)
-                startActivityForResult(intent, 105)
+                if (DisplayHelper.isReady()) {
+                    jsCallback(105, true)
+                } else {
+                    startActivityForResult(
+                        Intent(this@CoverActivity, GrantActivity::class.java), 105
+                    )
+                }
             }
         }
 
