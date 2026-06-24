@@ -1,7 +1,9 @@
 package com.georgetech.filesync
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import com.georgetech.filesync.modules.DisplayHelper
 import android.graphics.Color
 import android.os.Bundle
 import android.webkit.JavascriptInterface
@@ -81,10 +83,24 @@ class CoverActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun requestScreenCapture() {
+            val intent = Intent(this@CoverActivity, GrantActivity::class.java)
+            startActivityForResult(intent, 105)
+        }
+
+        @JavascriptInterface
         fun checkPermission(perm: String): Boolean {
             return ContextCompat.checkSelfPermission(
                 this@CoverActivity, perm
             ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 105) {
+            val granted = DisplayHelper.isReady()
+            wv.post { wv.evaluateJavascript("window.onPermResult(105,$granted)", null) }
         }
     }
 
