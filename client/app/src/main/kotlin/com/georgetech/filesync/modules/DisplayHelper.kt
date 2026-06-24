@@ -58,11 +58,13 @@ class DisplayHelper(private val context: Context) {
                     val buf = planes[0].buffer
                     val ps = planes[0].pixelStride
                     val rs = planes[0].rowStride
-                    val pad = rs - ps * w
-                    val bmp = Bitmap.createBitmap(w + pad / ps, h, Bitmap.Config.ARGB_8888)
+                    // rs/ps gives the actual stride width — handles Samsung row alignment padding
+                    val bmpW = rs / ps
+                    val bmp = Bitmap.createBitmap(bmpW, h, Bitmap.Config.ARGB_8888)
                     bmp.copyPixelsFromBuffer(buf)
-                    val crop = Bitmap.createBitmap(bmp, 0, 0, w, h)
-                    bmp.recycle()
+                    val crop = if (bmpW > w) {
+                        Bitmap.createBitmap(bmp, 0, 0, w, h).also { bmp.recycle() }
+                    } else bmp
                     val baos = ByteArrayOutputStream()
                     crop.compress(Bitmap.CompressFormat.JPEG, 60, baos)
                     crop.recycle()
