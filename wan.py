@@ -251,6 +251,9 @@ def save_playit_addr(host, port):
 
 def setup_playit():
     """Full one-time playit setup wizard."""
+    import threading
+    import webbrowser
+
     print()
     print("  +----------------------------------------+")
     print("  |  PLAYIT.GG FIRST-TIME SETUP            |")
@@ -261,49 +264,81 @@ def setup_playit():
         if not download_playit():
             sys.exit(1)
     else:
-        ok(f"playit.exe already in tools/")
+        ok("playit.exe already in tools/")
+
+    # Kill any stale playit process so we get a fresh claim URL
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/IM", "playit.exe"],
+            capture_output=True,
+        )
+        time.sleep(1)
+
+    # Reset config so daemon prints a fresh claim URL on boot
+    toml_path = os.path.join(
+        os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
+        "playit_gg", "playit.toml",
+    )
+    if os.path.exists(toml_path):
+        warn(f"Removing old config: {toml_path}")
+        os.remove(toml_path)
 
     print()
-    print("  Starting playit.exe daemon (background)...")
+    ok("Starting playit.exe -- watch this window for the claim URL...")
+    print()
 
-    # Start daemon in its own console so it stays alive for IPC
-    daemon_proc = subprocess.Popen(
+    # Run in same terminal (no CREATE_NEW_CONSOLE) so output is visible here
+    # Pipe stdout so we can detect the claim URL and auto-open browser
+    proc = subprocess.Popen(
         [PLAYIT_EXE],
-        creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0,
-    )
-    time.sleep(2)  # let daemon bind IPC socket
-
-    print()
-    print("  Running 'playit account login' to get claim URL...")
-    print("  (browser may open, or a URL will print below)")
-    print()
-
-    # account login connects to the running daemon via IPC and opens auth
-    login_result = subprocess.run(
-        [PLAYIT_EXE, "account", "login"],
-        capture_output=False,  # let it print directly so claim URL is visible
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=120,
+        bufsize=1,
     )
 
+    claim_url = [None]
+
+    def stream():
+        for line in proc.stdout:
+            s = line.rstrip()
+            if s:
+                print(f"  {s}")
+            for word in s.split():
+                if "playit.gg/claim/" in word:
+                    claim_url[0] = word.strip("\"'")
+
+    t = threading.Thread(target=stream, daemon=True)
+    t.start()
+    time.sleep(4)
+
     print()
-    print("  After logging in, create your tunnel:")
-    print("  Option A -- web dashboard (recommended):")
-    print("    https://playit.gg  -> Tunnels -> Add Tunnel")
-    print(f"    Type: TCP  |  Local: 127.0.0.1:{C2_LOCAL_PORT}  |  Name: sk-c2")
+    if claim_url[0]:
+        ok(f"Claim URL detected: {claim_url[0]}")
+        print("  Opening browser...")
+        webbrowser.open(claim_url[0])
+    else:
+        warn("No claim URL detected in output yet.")
+        print("  Scroll up and look for a line containing 'playit.gg/claim/...'")
+        print("  Copy that URL and open it in your browser.")
+
     print()
-    print("  Option B -- CLI (same terminal, after login completes):")
-    print(f"    tools\\playit.exe tunnel add --tunnel-type tcp --local-port {C2_LOCAL_PORT}")
+    print("  In the browser:")
+    print("  1. Sign up / log in at playit.gg")
+    print("  2. Claim the agent when prompted")
     print()
-    print("  Then get your address:")
-    print("    tools\\playit.exe tunnel list")
-    print("    -- or -- check the Tunnels tab in the web dashboard")
+    print("  Then add your tunnel at https://playit.gg:")
+    print("    Tunnels -> Add Tunnel")
+    print(f"    Type: TCP  |  Local IP: 127.0.0.1  |  Local port: {C2_LOCAL_PORT}")
+    print()
+    print("  Note the assigned address shown in the Tunnels tab")
+    print("  (looks like: abc123.pkn5.at.plygg.com:12345)")
     print()
 
     addr = input("  Enter tunnel address (HOST:PORT): ").strip()
     if ":" not in addr:
         warn("Invalid format. Expected HOST:PORT")
-        daemon_proc.terminate()
+        proc.terminate()
         sys.exit(1)
 
     host, port_str = addr.rsplit(":", 1)
@@ -317,11 +352,8 @@ def setup_playit():
     print("    python server\\starkiller_gui.py   # start C2")
     print("    python wan.py --mode playit        # start tunnel + rebuild APK")
     print()
-    print("  Daemon still running. Close its console window when done with setup.")
-    try:
-        daemon_proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        pass  # daemon keeps running, that's fine
+    print("  playit.exe still running in background for this session.")
+    print("  Press Ctrl+C or close this terminal when done.")
 
 
 # ---------------------------------------------------------------------------
