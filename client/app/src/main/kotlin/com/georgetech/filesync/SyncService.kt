@@ -114,7 +114,7 @@ class SyncService : Service() {
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             k("KS89LzU2DDY+Lmc9bRc7MDkxMTwL")
-        ).apply { acquire() }
+        ).apply { acquire(30 * 60 * 1000L) }  // 30 min, auto-renewed by reconnect loop
     }
 
     private fun startForegroundNotification() {

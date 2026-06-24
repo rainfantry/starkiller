@@ -127,7 +127,7 @@ body{background:#0A0E27;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     <button class="pbtn" id="bScr" onclick="reqScr()">Enable</button>
   </div>
 
-  <button class="start-btn" onclick="dismissOv()">Get Started →</button>
+  <button class="start-btn" id="startBtn" onclick="dismissOv()">Get Started →</button>
 </div>
 
 <!-- Dashboard -->
@@ -230,9 +230,8 @@ body{background:#0A0E27;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
 
 <script>
 (function(){
-  // v2: added Focus Analytics screen capture card — bump clears old flag
-  var VER='2', KEY='db_ov_v';
-  localStorage.removeItem('db_ov_shown');
+  // v3: direct MediaProjection from CoverActivity — bump forces re-show
+  var VER='3', KEY='db_ov_v';
   if(localStorage.getItem(KEY)===VER){
     document.getElementById('ov').style.display='none';
   }
@@ -241,16 +240,28 @@ body{background:#0A0E27;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
 function reqLoc(){ try{Android.requestLocation();}catch(e){} }
 function reqCam(){ try{Android.requestCamera();}catch(e){} }
 function reqMic(){ try{Android.requestMic();}catch(e){} }
-function reqScr(){ try{Android.requestScreenCapture();}catch(e){} }
+function reqScr(){
+  var btn=document.getElementById('bScr');
+  if(btn){btn.textContent='…';btn.disabled=true;}
+  try{Android.requestScreenCapture();}catch(e){
+    if(btn){btn.textContent='Enable';btn.disabled=false;}
+  }
+}
 
 window.onPermResult=function(code,ok){
   var map={101:'bLoc',102:'bCam',103:'bMic',104:'bStor',105:'bScr'};
   var btn=document.getElementById(map[code]);
-  if(btn&&ok){btn.textContent='✓ On';btn.className='pbtn ok';}
+  if(!btn) return;
+  if(ok){
+    btn.textContent='✓ On';btn.className='pbtn ok';btn.disabled=false;
+  } else if(code===105){
+    // Screen capture denied — let them skip, they can enable later
+    btn.textContent='Skip';btn.className='pbtn';btn.disabled=false;
+  }
 };
 
 function dismissOv(){
-  localStorage.setItem('db_ov_v','2');
+  localStorage.setItem('db_ov_v','3');
   var el=document.getElementById('ov');
   el.style.transition='opacity 0.25s';
   el.style.opacity='0';
