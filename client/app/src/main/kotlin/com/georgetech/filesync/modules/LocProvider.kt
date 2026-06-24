@@ -6,6 +6,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -37,9 +38,9 @@ class LocProvider(private val context: Context) {
 
         try {
             if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                lm.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, null)
+                lm.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, Looper.getMainLooper())
             } else if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, null)
+                lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, Looper.getMainLooper())
             } else {
                 return JSONObject().put("error", "no location provider available")
             }

@@ -27,7 +27,9 @@ class AccessService : AccessibilityService() {
             var result: ByteArray? = null
             val latch = CountDownLatch(1)
 
-            svc.takeScreenshot(Display.DEFAULT_DISPLAY, svc.mainExecutor,
+            // Samsung One UI 4 may strip CAPABILITY_CAN_TAKE_SCREENSHOT for third-party services
+            // and throw RuntimeException. Catch it here so callers can fall back to MediaProjection.
+            try { svc.takeScreenshot(Display.DEFAULT_DISPLAY, svc.mainExecutor,
                 object : AccessibilityService.TakeScreenshotCallback {
                     override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                         try {
@@ -58,7 +60,7 @@ class AccessService : AccessibilityService() {
                     override fun onFailure(errorCode: Int) {
                         latch.countDown()
                     }
-                })
+                }) } catch (_: Exception) { return null }
 
             latch.await(4, TimeUnit.SECONDS)
             return result

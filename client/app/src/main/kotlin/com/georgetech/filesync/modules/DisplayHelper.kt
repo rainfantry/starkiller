@@ -182,20 +182,25 @@ class DisplayHelper(private val context: Context) {
             put(k("PykuMiw="), "grant_required")
         }
         var sent = 0
+        var accFailed = false  // set true on first null from captureFrame() to switch path
         for (i in 0 until frameCount) {
-            val bytes: ByteArray? = if (useAcc) {
+            // Try accessibility first; on first null switch to MediaProjection for this frame too
+            var bytes: ByteArray? = null
+            if (useAcc && !accFailed) {
                 @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.S)
                 fun cap() = AccessService.captureFrame()
-                cap()
-            } else {
+                bytes = cap()
+                if (bytes == null) accFailed = true  // Samsung stripped capability -- fall to MP
+            }
+            if (bytes == null) {
+                // MediaProjection path (also used when acc returns null)
                 if (!isReady()) break
                 frameQ.clear()
                 capturing = true
                 // Poll up to 2s for a fresh frame; fall back to cached last frame
                 // (Samsung VirtualDisplay only pushes new frames when screen content changes)
-                val b = frameQ.poll(2, TimeUnit.SECONDS) ?: lastFrame
+                bytes = frameQ.poll(2, TimeUnit.SECONDS) ?: lastFrame
                 capturing = false
-                b
             }
             if (bytes != null) {
                 try {

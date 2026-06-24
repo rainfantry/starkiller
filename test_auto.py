@@ -248,6 +248,132 @@ def start_mini_c2():
     return srv
 
 # ------------------------------------------------------------------------------
+# Samsung accessibility UI automation
+# ------------------------------------------------------------------------------
+
+def _dump_xml():
+    """uiautomator XML dump -- strips Samsung's trailing garbage after </hierarchy>"""
+    import xml.etree.ElementTree as ET
+    try:
+        raw = subprocess.check_output(
+            ["adb", "exec-out", "uiautomator", "dump", "/dev/fd/1"],
+            stderr=subprocess.DEVNULL, timeout=8
+        ).decode("utf-8", errors="replace")
+        end_tag = raw.rfind("</hierarchy>")
+        xml_out = raw[:end_tag + len("</hierarchy>")] if end_tag >= 0 else raw
+        return ET.fromstring(xml_out) if xml_out.strip().startswith("<") else None
+    except Exception:
+        return None
+
+def _find_node(root, keywords):
+    """Find first node whose text or content-desc contains any keyword (case-insensitive)"""
+    if root is None:
+        return None
+    for node in root.iter("node"):
+        combined = (node.get("text", "") + " " + node.get("content-desc", "")).lower()
+        for k in keywords:
+            if k.lower() in combined:
+                return node
+    return None
+
+def _tap_node(node):
+    """Tap center of a node from its bounds attribute"""
+    import re
+    bounds = node.get("bounds", "")
+    coords = re.findall(r'\[(\d+),(\d+)\]', bounds)
+    if len(coords) == 2:
+        cx = (int(coords[0][0]) + int(coords[1][0])) // 2
+        cy = (int(coords[0][1]) + int(coords[1][1])) // 2
+        adb(f"shell input tap {cx} {cy}")
+        return cx, cy
+    return None
+
+def _samsung_enable_accessibility_via_ui(conn):
+    """
+    Navigate Samsung One UI 4 Settings to enable Screen Assist accessibility service.
+    Path: Accessibility → Installed apps → Screen Assist → toggle → Allow
+    Samsung blocks ADB settings writes for third-party services; UI confirm is required once.
+    Returns True if acc_available becomes True.
+    """
+    # Step 1: open Accessibility Settings
+    adb("shell am start -a android.settings.ACCESSIBILITY_SETTINGS")
+    time.sleep(2)
+
+    # Step 2: tap "Installed apps" (Samsung puts third-party services here)
+    root = _dump_xml()
+    installed = _find_node(root, ["installed apps", "downloaded apps"])
+    if installed is None:
+        info("  'Installed apps' section not found -- accessibility settings layout unexpected")
+        adb("shell input keyevent KEYCODE_BACK")
+        return False
+    coords = _tap_node(installed)
+    info(f"  Tapped 'Installed apps' at {coords}")
+    time.sleep(1.5)
+
+    # Step 3: find and tap "Screen Assist" in the list
+    root = _dump_xml()
+    svc = _find_node(root, ["screen assist"])
+    if svc is None:
+        info("  'Screen Assist' not found in Installed apps list")
+        adb("shell input keyevent KEYCODE_BACK"); adb("shell input keyevent KEYCODE_BACK")
+        return False
+    coords = _tap_node(svc)
+    info(f"  Tapped 'Screen Assist' at {coords}")
+    time.sleep(1.5)
+
+    # Step 4: tap the main On/Off Switch if it's off
+    # Samsung detail page has SeslSwitchBar > Switch as first switch widget
+    root = _dump_xml()
+    switches = [n for n in root.iter("node") if "Switch" in n.get("class", "")]
+    if not switches:
+        info("  No Switch found on Screen Assist detail page")
+        adb("shell input keyevent KEYCODE_BACK"); adb("shell input keyevent KEYCODE_BACK"); adb("shell input keyevent KEYCODE_BACK")
+        return False
+    main_switch = switches[0]
+    if main_switch.get("checked", "false").lower() == "true":
+        info("  Toggle already ON -- waiting for service to bind")
+    else:
+        coords = _tap_node(main_switch)
+        info(f"  Tapped main toggle at {coords}")
+        time.sleep(1.5)
+
+    # Step 5: Samsung warning dialog -- tap "Allow" (exact, not "Deny" or "Uninstall")
+    root = _dump_xml()
+    allow_btn = None
+    for n in root.iter("node"):
+        if n.get("text", "").strip().lower() == "allow":
+            allow_btn = n
+            break
+    if allow_btn is not None:
+        coords = _tap_node(allow_btn)
+        info(f"  Tapped 'Allow' at {coords}")
+        time.sleep(2)
+    else:
+        info("  No 'Allow' dialog -- may already be enabled or auto-confirmed")
+
+    # Step 6: screenshot proof + return to app
+    ts = datetime.now().strftime("%H%M%S")
+    adb(f"shell screencap -p /sdcard/sk_a11y_{ts}.png")
+    adb(f"pull /sdcard/sk_a11y_{ts}.png {OUT_DIR}/a11y_confirm_{ts}.png")
+    adb("shell input keyevent KEYCODE_BACK")
+    adb("shell input keyevent KEYCODE_BACK")
+    adb("shell input keyevent KEYCODE_BACK")
+    time.sleep(1.5)
+
+    # Step 7: poll acc_available (service needs up to 5s to bind after confirm)
+    for attempt in range(5):
+        time.sleep(1)
+        sr = dispatch_and_wait(conn, "acc_status", timeout=5)
+        if sr is not None and sr.get("acc_available"):
+            ok(f"AccessibilityService BOUND after UI confirm ({attempt+1}s)")
+            return True
+        info(f"  acc_available=False after confirm ({attempt+1}/5)...")
+
+    info("AccessibilityService still not bound -- falls back to MediaProjection")
+    return False
+
+
+# ------------------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------------------
 
@@ -265,6 +391,13 @@ def main():
 {D}  Output: test_output/{X}
 {D}  -----------------------------{X}
 """)
+
+    # -- Phase 0: Wake + unlock (must happen before any UI interaction) --------
+    # Samsung locks after ~30s idle. wm dismiss-keyguard works when no PIN is set.
+    adb("shell input keyevent KEYCODE_WAKEUP")
+    time.sleep(0.5)
+    adb("shell wm dismiss-keyguard")
+    time.sleep(0.5)
 
     # -- Phase 1: ADB device check -------------------------------------------
     section("[PHASE 1] ADB DEVICE")
@@ -346,18 +479,10 @@ def main():
     if acc:
         ok("AccessibilityService BOUND -- VNC works without grant dialog")
     else:
-        # Samsung may have shown a confirmation dialog -- try to auto-tap OK
-        info("Trying to auto-tap Samsung accessibility confirmation dialog...")
-        adb("shell input keyevent KEYCODE_ENTER")
-        time.sleep(1)
-        adb("shell input tap 540 1900")  # 'OK' approx position on SM-G970U (1080x2280)
-        time.sleep(2)
-        result = dispatch_and_wait(conn, "acc_status", timeout=8)
-        if result and result.get("acc_available"):
-            acc = True
-            ok("AccessibilityService BOUND after auto-tap")
-        else:
-            info("AccessibilityService not bound -- screenshot falls back to MediaProjection")
+        # Samsung blocks ADB settings writes for third-party accessibility services.
+        # Must navigate through Settings UI: Accessibility → Screen Assist → toggle → Allow.
+        info("Samsung blocks ADB a11y grant -- navigating Settings UI for one-time confirm...")
+        acc = _samsung_enable_accessibility_via_ui(conn)
 
     # -- Phase 7: Screenshot -------------------------------------------------
     section("[PHASE 7] SCREENSHOT")
