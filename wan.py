@@ -264,30 +264,46 @@ def setup_playit():
         ok(f"playit.exe already in tools/")
 
     print()
-    print("  Starting playit.exe for first-time claim...")
-    print("  A browser window will open at https://playit.gg/claim/XXXXXX")
-    print()
+    print("  Starting playit.exe daemon (background)...")
 
-    proc = subprocess.Popen(
+    # Start daemon in its own console so it stays alive for IPC
+    daemon_proc = subprocess.Popen(
         [PLAYIT_EXE],
         creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0,
     )
+    time.sleep(2)  # let daemon bind IPC socket
 
-    print("  In the browser:")
-    print("  1. Sign up / log in at playit.gg")
-    print("  2. Claim the agent when prompted")
-    print("  3. Click 'Add Tunnel'")
-    print("     -> Type: TCP")
-    print("     -> Local server: 127.0.0.1")
-    print(f"     -> Local port: {C2_LOCAL_PORT}")
-    print("     -> Name: starkiller-c2  (or anything)")
-    print("  4. Note the assigned hostname and port (e.g. abc.pkn5.at.plygg.com:12345)")
+    print()
+    print("  Running 'playit account login' to get claim URL...")
+    print("  (browser may open, or a URL will print below)")
+    print()
+
+    # account login connects to the running daemon via IPC and opens auth
+    login_result = subprocess.run(
+        [PLAYIT_EXE, "account", "login"],
+        capture_output=False,  # let it print directly so claim URL is visible
+        text=True,
+        timeout=120,
+    )
+
+    print()
+    print("  After logging in, create your tunnel:")
+    print("  Option A -- web dashboard (recommended):")
+    print("    https://playit.gg  -> Tunnels -> Add Tunnel")
+    print(f"    Type: TCP  |  Local: 127.0.0.1:{C2_LOCAL_PORT}  |  Name: sk-c2")
+    print()
+    print("  Option B -- CLI (same terminal, after login completes):")
+    print(f"    tools\\playit.exe tunnel add --tunnel-type tcp --local-port {C2_LOCAL_PORT}")
+    print()
+    print("  Then get your address:")
+    print("    tools\\playit.exe tunnel list")
+    print("    -- or -- check the Tunnels tab in the web dashboard")
     print()
 
     addr = input("  Enter tunnel address (HOST:PORT): ").strip()
     if ":" not in addr:
         warn("Invalid format. Expected HOST:PORT")
-        proc.terminate()
+        daemon_proc.terminate()
         sys.exit(1)
 
     host, port_str = addr.rsplit(":", 1)
@@ -301,8 +317,11 @@ def setup_playit():
     print("    python server\\starkiller_gui.py   # start C2")
     print("    python wan.py --mode playit        # start tunnel + rebuild APK")
     print()
-    print("  playit.exe is running. Close the console window when done with setup.")
-    proc.wait()
+    print("  Daemon still running. Close its console window when done with setup.")
+    try:
+        daemon_proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass  # daemon keeps running, that's fine
 
 
 # ---------------------------------------------------------------------------
