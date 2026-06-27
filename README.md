@@ -267,3 +267,18 @@ Watch the scrcpy window. The test will:
 ---
 
 *Built from VADER's protocol. The agent doesn't care what OS it runs on.*
+
+---
+
+## TODO — Release Blackops
+
+_Automated read-only assessment — what a full public-release pass would do for this repo. Suggestions only; nothing above has been changed or removed._
+
+- [ ] **AI/Claude attribution detected in git history — scrub it** (`filter-branch` + force-push; nuke-and-recreate if a 0-star/0-fork repo and the orphaned SHA lingers).
+- [ ] Add a `LICENSE` file (MIT or your choice + holder).
+- [ ] Add discovery topics for SEO (`gh repo edit --add-topic ...`, up to 20).
+- [ ] Add a screenshot or diagram to the README if there's a GUI or visual output.
+- [ ] Verify a clean from-scratch build/run against the README quick start (produce a real artifact, don't trust the docs).
+- [ ] If this is a desktop app, make a self-contained build (bundle runtime assets/models into the binary; confirm it runs with no external files).
+
+<sub>Workflow: https://github.com/rainfantry/release-blackops-skill</sub>
