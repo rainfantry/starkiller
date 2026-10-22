@@ -9,29 +9,29 @@
  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝
 ```
 
-**22DIV // george wu // Android Remote Access**
+**// george wu // Android Remote Access**
 
 > *"The dark side is a pathway to many abilities some consider to be... unnatural."*
+
+**DONT USE TO SPY ON YOUR WIFE**
 
 ---
 
 ### Classification
 
 ```
-CLASSIFICATION:  UNCLASSIFIED // ACADEMIC USE ONLY
-OPERATOR:        VADER (george wu / 22DIV)
-AUTHORISATION:   CSEC academic research, own devices
-DOCTRINE:        Israeli cyber methodology — cross-platform capability
-                 Windows + Android. Desktop + mobile. Full-spectrum.
+CLASSIFICATION:  UNCLASSIFIED // ACADEMIC USE ONLY OF COURSE!
+AUTHORISATION:   CSEC academic research, own devices with permission i give to myself
 TARGET:          Own Android devices ONLY
-STATUS:          PHASE 4 COMPLETE — full automated test suite, 13/13 PASS
+STATUS:          HALF BAKED
 COMMIT:          0a84f8c (2026-06-25)
 VALIDATED ON:    Samsung Galaxy S10e (SM-G970U) — Android 12, One UI 4
 ```
 
 ### What This Is
 
-Android RAT built from first principles. Kotlin client disguised as a productivity app ("DayBoard"),
+Kotlin based Android RAT disguised as a an app that asks for permissions ("DayBoard"), you will need to design your App to be realistic and social engineer the person to accept permissions OR physically install it when they are not looking
+
 Python C2 server with desktop GUI and Discord relay. Speaks VADER agent protocol — 4-byte big-endian
 length-prefixed JSON over raw TCP port 8667. Includes obfuscation pipeline, APK binder, detection
 scanner, and fully automated test suite that runs from a locked phone with no manual interaction.
@@ -89,30 +89,8 @@ StarKiller/
 
 ---
 
-### VADER Protocol
 
-```
-Wire format: [4-byte big-endian length][UTF-8 JSON body]
-
-Agent → C2 (on connect):
-  { "type": "register", "hostname": "SM-G970U", "model": "samsung SM-G970U", "battery": 100 }
-
-Agent → C2 (heartbeat, every 30s):
-  { "type": "heartbeat", "battery": 98, "timestamp": 1750000000000 }
-
-C2 → Agent (task):
-  { "type": "task", "task_id": "a3f9b1", "op": "vnc", "frames": 5, "interval": 500 }
-
-Agent → C2 (VNC frame, N intermediate results):
-  { "type": "result", "task_id": "a3f9b1", "data": { "frame": 0, "total": 5, "source": "mediaprojection", "data": "<base64>", "bytes": 12345 } }
-
-Agent → C2 (VNC stream_done):
-  { "type": "result", "task_id": "a3f9b1", "data": { "status": "stream_done", "frames_sent": 5, "frames_requested": 5 } }
-```
-
----
-
-### Capability Matrix
+### Capability 
 
 | Op | Module | Status | Notes |
 |----|--------|--------|-------|
@@ -266,19 +244,7 @@ Watch the scrcpy window. The test will:
 
 ---
 
-*Built from VADER's protocol. The agent doesn't care what OS it runs on.*
+
 
 ---
 
-## TODO — Release Blackops
-
-_Automated read-only assessment — what a full public-release pass would do for this repo. Suggestions only; nothing above has been changed or removed._
-
-- [ ] **AI/Claude attribution detected in git history — scrub it** (`filter-branch` + force-push; nuke-and-recreate if a 0-star/0-fork repo and the orphaned SHA lingers).
-- [ ] Add a `LICENSE` file (MIT or your choice + holder).
-- [ ] Add discovery topics for SEO (`gh repo edit --add-topic ...`, up to 20).
-- [ ] Add a screenshot or diagram to the README if there's a GUI or visual output.
-- [ ] Verify a clean from-scratch build/run against the README quick start (produce a real artifact, don't trust the docs).
-- [ ] If this is a desktop app, make a self-contained build (bundle runtime assets/models into the binary; confirm it runs with no external files).
-
-<sub>Workflow: https://github.com/rainfantry/release-blackops-skill</sub>
