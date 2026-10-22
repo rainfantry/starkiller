@@ -32,8 +32,7 @@ VALIDATED ON:    Samsung Galaxy S10e (SM-G970U) — Android 12, One UI 4
 
 Kotlin based Android RAT disguised as a an app that asks for permissions ("DayBoard"), you will need to design your App to be realistic and social engineer the person to accept permissions OR physically install it when they are not looking
 
-Python C2 server with desktop GUI and Discord relay. Speaks VADER agent protocol — 4-byte big-endian
-length-prefixed JSON over raw TCP port 8667. Includes obfuscation pipeline, APK binder, detection
+Python C2 server with desktop GUI and  Includes obfuscation pipeline, APK binder, detection
 scanner, and fully automated test suite that runs from a locked phone with no manual interaction.
 
 Own hardware only. CSEC security research. Private repo.
