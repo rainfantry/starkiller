@@ -1,4 +1,5 @@
 # STARKILLER
+# This repo is connected to Android Rat v1 repo you need both to figure out how to work on it 
 
 ```
  ███████╗████████╗ █████╗ ██████╗ ██╗  ██╗██╗██╗     ██╗     ███████╗██████╗
